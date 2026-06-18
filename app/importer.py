@@ -40,17 +40,31 @@ def _get_or_create(c, row, etype, source):
         if verdict is True:
             return eid, False
         if verdict is None:
+            kind = f"match_{etype.lower()}" if etype else "match_entity"
             c.execute(
                 "INSERT INTO review_queue (kind, payload, suggestion, confidence) VALUES (?,?,?,?)",
-                (f"match_{etype.lower()}", json.dumps(row),
+                (kind, json.dumps(row),
                  json.dumps({"candidate_id": eid, "candidate_name": _entity_name(c, eid)}), conf),
             )
             return None, False
         # verdict is False → distinct entity, fall through to create
+
+    etype_to_save = etype
+    if not etype_to_save:
+        name_lower = row.get("name", "").lower()
+        if any(w in name_lower for w in ["pvt", "ltd", "private", "limited", "llp", "industries", "builders", "constructions", "suppliers", "traders", "ventures"]):
+            etype_to_save = "Company"
+        elif any(w in name_lower for w in ["department", "dept", "board", "authority", "panchayat", "ministry", "commission", "office"]):
+            etype_to_save = "GovtBody"
+        elif any(w in name_lower for w in ["trust", "foundation", "charity", "seva"]):
+            etype_to_save = "Trust"
+        else:
+            etype_to_save = "Person"
+
     cur = c.execute(
         "INSERT INTO entities (name, type, pan, din, cin, party, position, constituency, state, address, incorporation_date, criminal_cases, notes) "
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (row.get("name", "").strip(), etype, row.get("pan") or None, row.get("din") or None,
+        (row.get("name", "").strip(), etype_to_save, row.get("pan") or None, row.get("din") or None,
          row.get("cin") or None, row.get("party"), row.get("position"), row.get("constituency"),
          row.get("state"), row.get("address"), row.get("incorporation_date"),
          int(_num(row.get("criminal_cases"))), f"Imported from {source}"),
