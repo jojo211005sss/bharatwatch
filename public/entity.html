@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entity — BharatWatch</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+</head>
+<body>
+<main id="page"><p>Loading…</p></main>
+<script src="/static/app.js"></script>
+<script>
+renderHeader("");
+const id = new URLSearchParams(location.search).get("id");
+let cy = null, depth = 2;
+
+const NODE_COLORS = { Politician: "#c0392b", Person: "#b9770e", Company: "#0b66c3",
+                      GovtBody: "#0a8f6c", Trust: "#8e44ad", Unknown: "#7f8c8d" };
+const EDGE_COLORS = { Contract_Awarded_To: "#c0392b", Fund_Transfer: "#b9770e",
+                      Family_Link: "#8e44ad", Director_Of: "#0b66c3" };
+
+async function load() {
+  let p;
+  try { p = await api("/api/entity/" + id); }
+  catch (e) { document.getElementById("page").innerHTML = "<p>Entity not found.</p>"; return; }
+  const e = p.entity;
+  const initials = e.name.split(/\s+/).map(w => w[0]).slice(0, 2).join("");
+  document.title = e.name + " — BharatWatch";
+
+  document.getElementById("page").innerHTML = `
+    <div class="card profile-head">
+      <div class="avatar">${esc(initials)}</div>
+      <div>
+        <h1>${esc(e.name)}</h1>
+        <dl class="kv">
+          <dt>Type</dt><dd>${esc(e.type)}${e.position ? " — " + esc(e.position) : ""}</dd>
+          ${e.party ? `<dt>Party</dt><dd>${esc(e.party)}</dd>` : ""}
+          ${e.constituency ? `<dt>Constituency</dt><dd>${esc(e.constituency)}, ${esc(e.state || "")}</dd>` : (e.state ? `<dt>State</dt><dd>${esc(e.state)}</dd>` : "")}
+          ${e.pan ? `<dt>PAN</dt><dd>${esc(e.pan)}</dd>` : ""}
+          ${e.din ? `<dt>DIN</dt><dd>${esc(e.din)}</dd>` : ""}
+          ${e.cin ? `<dt>CIN</dt><dd>${esc(e.cin)}</dd>` : ""}
+          ${p.declarations.length ? `<dt>Declared assets</dt><dd>${fmtCr(p.declarations.at(-1).assets)} (${p.declarations.at(-1).year})</dd>` : ""}
+          ${e.criminal_cases ? `<dt>Criminal cases</dt><dd>${e.criminal_cases} declared</dd>` : ""}
+        </dl>
+        <div class="exports">
+          <button onclick="window.print()">⤓ PDF report</button>
+          <a href="/api/export/entity/${id}.csv">⤓ CSV linked entities</a>
+          <a href="/api/export/entity/${id}.json">⤓ JSON graph data</a>
+          <button onclick="exportPng()">⤓ Graph image</button>
+        </div>
+      </div>
+      <div class="riskmeter">
+        <div class="pct" style="color:${p.risk >= 70 ? "var(--danger)" : p.risk >= 40 ? "var(--warn)" : "var(--accent2)"}">${p.risk}%</div>
+        <div class="label" style="color:var(--muted)">max risk score</div>
+        ${p.flagged_value ? `<div class="badge risk-high" style="margin-top:6px">${fmtCr(p.flagged_value)} flagged</div>` : ""}
+      </div>
+    </div>
+
+    <h2 class="section-title">Relationship graph</h2>
+    <div class="graph-tools">
+      <span>Depth:</span>
+      ${[1, 2, 3].map(d => `<button class="ghost" data-d="${d}" onclick="setDepth(${d})">L${d}</button>`).join("")}
+      <span class="legend">
+        <i style="background:#c0392b"></i>Politician <i style="background:#b9770e"></i>Person
+        <i style="background:#0b66c3"></i>Company <i style="background:#0a8f6c"></i>Govt body
+        <i style="background:#8e44ad"></i>Trust — ⚑ ring = flagged · click a node to drill down, click an edge for evidence
+      </span>
+    </div>
+    <div id="graph"></div>
+    <div class="notice" id="edgeInfo" style="display:none"></div>
+
+    ${p.flags.length ? `<h2 class="section-title">Flagged insights</h2>` : ""}
+    ${p.flags.map(f => `
+      <div class="card flagbox">
+        <div class="head"><h3>${esc(f.title)}</h3>${riskBadge(f.risk_score)}</div>
+        <div class="pattern">PATTERN: ${esc(f.pattern)} · ${fmtCr(f.value_involved || 0)} involved</div>
+        <p class="expl">${esc(f.explanation)}</p>
+        <details><summary style="cursor:pointer;color:var(--muted)">Evidence records (${f.evidence.length})</summary>
+          <pre style="overflow:auto;font-size:12px">${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>
+      </div>`).join("")}
+
+    <div class="tabs" id="tabs">
+      <button data-t="timeline" class="active">Timeline</button>
+      ${e.type === 'Politician' ? `<button data-t="tenures">Tenures (${p.tenures.length})</button>` : ''}
+      <button data-t="companies">Companies (${p.companies.length})</button>
+      <button data-t="contracts">Contracts (${p.contracts.length})</button>
+      <button data-t="flows">Fund flows (${p.fund_flows.length})</button>
+      ${e.type === 'Politician' ? `<button data-t="assets">Assets (${p.declarations.length})</button>` : ''}
+      ${e.type === 'Company' ? `<button data-t="financials">Financials (${p.financials.length})</button>` : ''}
+    </div>
+
+    <div class="tabpane active" id="pane-timeline">
+      <div class="timeline">${p.timeline.map(t => `
+        <div class="ev"><div class="d">${esc(t.date)} · ${esc(t.kind)}</div><div>${esc(t.text)}</div></div>`).join("") || "No events."}
+      </div>
+    </div>
+    ${e.type === 'Politician' ? `
+    <div class="tabpane" id="pane-tenures">
+      <table class="data"><tr><th>Office</th><th>Start Date</th><th>End Date</th><th>Source</th></tr>
+      ${p.tenures.map(t => `<tr><td>${esc(t.office)}</td><td>${esc(t.start_date)}</td>
+        <td>${esc(t.end_date || "Present")}</td><td>${esc(t.source)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
+      </table>
+    </div>` : ''}
+    <div class="tabpane" id="pane-companies">
+      <table class="data"><tr><th>Company</th><th>CIN</th><th>Incorporated</th><th>Linked via</th></tr>
+      ${p.companies.map(c => `<tr><td><a href="/entity?id=${c.id}">${esc(c.name)}</a></td>
+        <td>${esc(c.cin || "")}</td><td>${esc(c.incorporation_date || "")}</td><td>${esc(c.via)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
+      </table>
+    </div>
+    <div class="tabpane" id="pane-contracts">
+      <table class="data"><tr><th>Tender</th><th>Title</th><th>Buyer</th><th>Supplier</th><th>Value</th><th>Date</th><th>Source</th></tr>
+      ${p.contracts.map(k => `<tr><td>${esc(k.tender_id)}</td><td>${esc(k.title)}</td>
+        <td>${esc(k.buyer_name)}</td><td>${esc(k.supplier_name)}</td><td>${fmtCr(k.value)}</td>
+        <td>${esc(k.award_date)}</td><td>${esc(k.source)}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
+      </table>
+    </div>
+    <div class="tabpane" id="pane-flows">
+      <table class="data"><tr><th>Scheme</th><th>From</th><th>To</th><th>Amount</th><th>Date</th><th>Purpose</th></tr>
+      ${p.fund_flows.map(f => `<tr><td>${esc(f.scheme)}</td><td>${esc(f.from_name)}</td>
+        <td>${esc(f.to_name)}</td><td>${fmtCr(f.amount)}</td><td>${esc(f.date)}</td><td>${esc(f.purpose)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
+      </table>
+    </div>
+    ${e.type === 'Politician' ? `
+    <div class="tabpane" id="pane-assets">
+      <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Annual income</th><th>Source</th></tr>
+      ${p.declarations.map(d => `<tr><td>${d.year}</td><td>${fmtCr(d.assets)}</td>
+        <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>${esc(d.source)}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+      </table>
+    </div>` : ''}
+    ${e.type === 'Company' ? `
+    <div class="tabpane" id="pane-financials">
+      <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Revenue</th><th>Net Profit</th><th>Source</th></tr>
+      ${p.financials.map(fn => `<tr><td>${fn.year}</td><td>${fmtCr(fn.assets)}</td>
+        <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>${esc(fn.source)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
+      </table>
+    </div>` : ''}
+    `;
+
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x === b));
+    document.querySelectorAll(".tabpane").forEach(x =>
+      x.classList.toggle("active", x.id === "pane-" + b.dataset.t));
+  });
+  drawGraph();
+}
+
+async function drawGraph() {
+  const box = document.getElementById("graph");
+  if (typeof cytoscape === "undefined") {
+    box.innerHTML = "<p style='padding:20px'>Graph library could not load (offline?). Use the Linked Data tabs below.</p>";
+    return;
+  }
+  const g = await api(`/api/graph/${id}?depth=${depth}`);
+  const elements = [
+    ...g.nodes.map(n => ({ data: { id: "n" + n.id, eid: n.id, label: n.label, type: n.type || "Unknown",
+                                   flagged: n.flagged ? 1 : 0, center: n.center ? 1 : 0 } })),
+    ...g.edges.map(e => ({ data: { id: e.id, source: "n" + e.source, target: "n" + e.target,
+                                   type: e.type, evidence: e.evidence || "", src: e.src || "",
+                                   value: e.value || 0 } })),
+  ];
+  if (cy) cy.destroy();
+  cy = cytoscape({
+    container: box, elements,
+    style: [
+      { selector: "node", style: {
+          label: "data(label)", "font-size": 11, color: getComputedStyle(document.body).color,
+          "text-wrap": "wrap", "text-max-width": 110, "text-valign": "bottom", "text-margin-y": 6,
+          width: 26, height: 26,
+          "background-color": (n) => NODE_COLORS[n.data("type")] || NODE_COLORS.Unknown } },
+      { selector: "node[center = 1]", style: { width: 46, height: 46, "border-width": 4, "border-color": "#f1c40f" } },
+      { selector: "node[flagged = 1]", style: { "border-width": 3, "border-color": "#e74c3c", "border-style": "double" } },
+      { selector: "edge", style: {
+          width: (e) => Math.min(1.5 + (e.data("value") || 0) / 5e7, 6),
+          "curve-style": "bezier", "target-arrow-shape": "triangle",
+          "line-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
+          "target-arrow-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
+          label: "data(type)", "font-size": 8, "text-rotation": "autorotate",
+          color: getComputedStyle(document.body).color, "text-background-opacity": 0 } },
+    ],
+    layout: { name: "cose", animate: false, padding: 40, nodeRepulsion: 900000,
+              idealEdgeLength: 140, nodeOverlap: 30 },
+  });
+  cy.on("tap", "node", (ev) => {
+    const eid = ev.target.data("eid");
+    if (eid && eid != id) location.href = "/entity?id=" + eid;
+  });
+  cy.on("tap", "edge", (ev) => {
+    const d = ev.target.data();
+    const info = document.getElementById("edgeInfo");
+    info.style.display = "block";
+    info.innerHTML = `<strong>${esc(d.type)}</strong>${d.value ? " · " + fmtCr(d.value) : ""}<br>
+      ${esc(d.evidence)}<br><span style="color:var(--muted)">Source: ${esc(d.src)}</span>`;
+  });
+}
+
+function setDepth(d) { depth = d; drawGraph(); }
+function exportPng() {
+  if (!cy) return;
+  const a = document.createElement("a");
+  a.href = cy.png({ full: true, scale: 2, bg: getComputedStyle(document.body).backgroundColor });
+  a.download = "bharatwatch_graph.png";
+  a.click();
+}
+load();
+</script>
+</body>
+</html>

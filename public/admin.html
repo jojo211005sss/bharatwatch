@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — BharatWatch</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <h1>Admin / Data ingestion</h1>
+
+  <div class="card" id="loginBox">
+    <p>Admin access is required for data ingestion and review.</p>
+    <div class="filters">
+      <input id="pw" type="password" placeholder="Admin password">
+      <button class="ghost" onclick="login()">Sign in</button>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div id="panel" style="display:none">
+    <h2 class="section-title">1 · Upload public-source CSV</h2>
+    <div class="card">
+      <div class="filters">
+        <select id="dataset">
+          <option value="affidavits">ECI affidavits (name,pan,party,position,constituency,state,year,assets,liabilities,income,criminal_cases)</option>
+          <option value="companies">MCA companies (cin,name,pan,address,state,incorporation_date)</option>
+          <option value="directors">MCA directors (din,name,pan,cin,company_name,appointment_date)</option>
+          <option value="contracts">CPPP/GeM contracts (tender_id,title,buyer,supplier,supplier_cin,value,award_date,description,source)</option>
+          <option value="fundflows">PFMS fund flows (scheme,from,to,amount,date,purpose,source)</option>
+          <option value="relations">Relationships (from_name,to_name,type,evidence,source)</option>
+          <option value="financials">Company Financials (company_name,cin,year,assets,liabilities,revenue,net_profit,source)</option>
+          <option value="tenures">Politician Tenures (politician_name,pan,office,start_date,end_date,source)</option>
+        </select>
+        <input type="file" id="file" accept=".csv">
+      </div>
+      <textarea class="csv" id="csv" placeholder="…or paste CSV (with header row) here"></textarea>
+      <p style="color:var(--muted);font-size:13px">On upload, rows are normalized and entity-resolved
+      (PAN → DIN → CIN → AI/fuzzy name match). Confident matches import directly; uncertain matches
+      go to the review queue. Flags are recomputed automatically.</p>
+      <button class="ghost" onclick="upload()">Import &amp; normalize</button>
+      <button class="ghost" onclick="rescore()">Re-run detection only</button>
+      <div id="upMsg"></div>
+    </div>
+
+    <h2 class="section-title">2 · Manual review queue</h2>
+    <div class="card"><div id="queue">Loading…</div></div>
+
+    <h2 class="section-title">3 · Import history</h2>
+    <div class="card"><div id="imports"></div></div>
+
+    <h2 class="section-title">Scheduled refresh</h2>
+    <div class="card" style="color:var(--muted);font-size:14px">
+      For monthly refreshes, schedule the importer from cron, e.g.<br>
+      <code>0 3 1 * * curl -s -X POST -H "X-Admin-Token: $TOKEN" -H "Content-Type: application/json" --data @mca_monthly.json http://localhost:8787/api/admin/upload</code>
+    </div>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+renderHeader("/admin");
+let token = sessionStorage.getItem("bw-admin") || "";
+const H = () => ({ "Content-Type": "application/json", "X-Admin-Token": token });
+
+async function login() {
+  try {
+    const d = await api("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: document.getElementById("pw").value }) });
+    token = d.token;
+    sessionStorage.setItem("bw-admin", token);
+    show();
+  } catch (e) {
+    document.getElementById("loginMsg").innerHTML = `<div class="notice err">${esc(e.message)}</div>`;
+  }
+}
+
+async function show() {
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("panel").style.display = "block";
+  await Promise.all([loadQueue(), loadImports()]).catch(() => {
+    sessionStorage.removeItem("bw-admin");
+    location.reload();
+  });
+}
+
+document.getElementById("file").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (f) document.getElementById("csv").value = await f.text();
+});
+
+async function upload() {
+  const csv = document.getElementById("csv").value.trim();
+  const out = document.getElementById("upMsg");
+  if (!csv) { out.innerHTML = `<div class="notice err">Paste or choose a CSV first.</div>`; return; }
+  out.innerHTML = `<div class="notice">Importing…</div>`;
+  try {
+    const d = await api("/api/admin/upload", { method: "POST", headers: H(),
+      body: JSON.stringify({ dataset: document.getElementById("dataset").value, csv,
+        filename: (document.getElementById("file").files[0] || {}).name || "pasted.csv" }) });
+    out.innerHTML = `<div class="notice">Imported ${d.accepted}/${d.rows} rows · ${d.queued} queued for review · ${d.flags} total flags after rescore.</div>`;
+    loadQueue(); loadImports();
+  } catch (e) { out.innerHTML = `<div class="notice err">${esc(e.message)}</div>`; }
+}
+
+async function rescore() {
+  const d = await api("/api/admin/rescore", { method: "POST", headers: H() });
+  document.getElementById("upMsg").innerHTML = `<div class="notice">Detection re-run: ${d.flags} flags.</div>`;
+}
+
+async function loadQueue() {
+  const items = await api("/api/admin/review", { headers: H() });
+  document.getElementById("queue").innerHTML = items.length ? items.map(i => `
+    <div class="notice">
+      <strong>${esc(i.kind)}</strong> · confidence ${(i.confidence * 100).toFixed(0)}%<br>
+      Incoming: <code>${esc(JSON.stringify(i.payload))}</code><br>
+      Suggested match: <strong>${esc(i.suggestion.candidate_name || "?")}</strong>
+      <div style="margin-top:6px">
+        <button class="ghost" onclick="review(${i.id},'approve')">Merge into match</button>
+        <button class="ghost" onclick="review(${i.id},'reject')">Keep as new entity</button>
+      </div>
+    </div>`).join("") : "<p>No pending items. 🎉</p>";
+}
+
+async function review(id, action) {
+  await api("/api/admin/review/" + id, { method: "POST", headers: H(), body: JSON.stringify({ action }) });
+  loadQueue();
+}
+
+async function loadImports() {
+  const rows = await api("/api/admin/imports", { headers: H() });
+  document.getElementById("imports").innerHTML = rows.length ? `
+    <table class="data"><tr><th>When</th><th>File</th><th>Dataset</th><th>Result</th></tr>
+    ${rows.map(r => `<tr><td>${esc(r.created_at)}</td><td>${esc(r.filename)}</td>
+      <td>${esc(r.dataset)}</td><td>${esc(r.summary)}</td></tr>`).join("")}</table>` : "<p>No imports yet.</p>";
+}
+
+if (token) show();
+</script>
+</body>
+</html>

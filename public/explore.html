@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explore entities — BharatWatch</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <h1>Explore all entities</h1>
+  <div class="filters">
+    <input id="fq" type="search" placeholder="Filter by name…">
+    <select id="ftype">
+      <option value="">All types</option>
+      <option>Politician</option><option>Person</option><option>Company</option>
+      <option>GovtBody</option><option>Trust</option>
+    </select>
+    <select id="fstate"><option value="">All states</option></select>
+    <span id="count" style="align-self:center;color:var(--muted)"></span>
+  </div>
+  <table class="data" id="tbl">
+    <tr><th>Name</th><th>Type</th><th>Party</th><th>Constituency</th><th>State</th><th>Risk</th><th>Flagged value</th></tr>
+  </table>
+</main>
+<script src="/static/app.js"></script>
+<script>
+renderHeader("/explore");
+const els = { q: fq, type: ftype, state: fstate };
+let statesLoaded = false;
+
+async function refresh() {
+  const params = new URLSearchParams();
+  if (els.q.value) params.set("q", els.q.value);
+  if (els.type.value) params.set("type", els.type.value);
+  if (els.state.value) params.set("state", els.state.value);
+  const d = await api("/api/entities?" + params);
+  if (!statesLoaded) {
+    fstate.insertAdjacentHTML("beforeend",
+      d.states.map(s => `<option>${esc(s)}</option>`).join(""));
+    statesLoaded = true;
+  }
+  document.getElementById("count").textContent = d.total + " entities";
+  document.getElementById("tbl").innerHTML =
+    "<tr><th>Name</th><th>Type</th><th>Party</th><th>Constituency</th><th>State</th><th>Risk</th><th>Flagged value</th></tr>" +
+    d.rows.map(r => `<tr>
+      <td><a href="/entity?id=${r.id}">${esc(r.name)}</a></td>
+      <td>${esc(r.type)}</td><td>${esc(r.party || "")}</td>
+      <td>${esc(r.constituency || "")}</td><td>${esc(r.state || "")}</td>
+      <td>${r.risk ? riskBadge(r.risk) : "—"}</td>
+      <td>${r.flagged_value ? fmtCr(r.flagged_value) : "—"}</td></tr>`).join("");
+}
+Object.values(els).forEach(el => el.addEventListener("input", refresh));
+refresh();
+</script>
+</body>
+</html>

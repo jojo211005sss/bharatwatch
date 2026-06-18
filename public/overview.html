@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>National overview — BharatWatch</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <h1>National overview</h1>
+  <p style="color:var(--muted)">Aggregate red-flag exposure by state and by pattern type.</p>
+
+  <h2 class="section-title">Flagged value by state</h2>
+  <div class="heat" id="heat"></div>
+
+  <h2 class="section-title">Patterns detected</h2>
+  <table class="data" id="patterns">
+    <tr><th>Pattern</th><th>What it means</th><th>Cases</th><th>Value involved</th></tr>
+  </table>
+</main>
+<script src="/static/app.js"></script>
+<script>
+renderHeader("/overview");
+const PATTERN_DESC = {
+  FAMILY_CONTRACT: "Government contracts awarded to firms directed by a politician's declared family members",
+  ASSET_GROWTH: "Declared asset growth incompatible with declared income across affidavits",
+  REPEATED_AWARDS: "One connected supplier repeatedly winning from a department the politician oversees",
+  GHOST_ENTITY: "Newly incorporated shell-like company winning public orders within weeks",
+  FUND_LOOP: "Circular fund flows through trusts/intermediaries returning to the same network",
+};
+
+(async () => {
+  const d = await api("/api/overview");
+  const max = Math.max(...d.states.map(s => s.flagged_value), 1);
+  document.getElementById("heat").innerHTML = d.states.map(s => `
+    <div class="cell card">
+      <strong>${esc(s.state)}</strong>
+      <div style="color:var(--muted);font-size:13px">${s.politicians} politician(s) · ${s.flags} flag(s)</div>
+      <div style="font-weight:700;margin-top:4px">${s.flagged_value ? fmtCr(s.flagged_value) : "—"}</div>
+      <div class="bar"><i style="width:${Math.round(100 * s.flagged_value / max)}%"></i></div>
+    </div>`).join("");
+  document.getElementById("patterns").innerHTML =
+    "<tr><th>Pattern</th><th>What it means</th><th>Cases</th><th>Value involved</th></tr>" +
+    d.patterns.map(p => `<tr><td><strong>${esc(p.pattern)}</strong></td>
+      <td>${esc(PATTERN_DESC[p.pattern] || "")}</td><td>${p.n}</td><td>${fmtCr(p.value)}</td></tr>`).join("");
+})();
+</script>
+</body>
+</html>

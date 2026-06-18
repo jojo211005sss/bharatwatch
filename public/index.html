@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BharatWatch — Public-data corruption pattern explorer</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <div class="hero">
+    <h1>Connect the dots in public data</h1>
+    <p>Search any politician and see declared assets, family-linked firms, government contracts
+       and fund flows — with automatically detected red-flag patterns.</p>
+    <div class="searchbox">
+      <input id="q" type="search" placeholder="Search politician, PAN, DIN, CIN or constituency…" autocomplete="off">
+      <div class="results" id="qres"></div>
+    </div>
+  </div>
+
+  <div class="cards" id="stats"></div>
+
+  <h2 class="section-title">⚠ High-risk cases <span id="flaggedTotal" class="badge risk-high" style="font-size:14px"></span></h2>
+  <div class="risk-grid" id="highrisk"></div>
+
+  <h2 class="section-title">How it works</h2>
+  <div class="cards">
+    <div class="card"><div class="big">1. Link</div><div class="label">ECI affidavits, MCA director registries (DIN/CIN/PAN), CPPP &amp; GeM contracts and PFMS fund flows are merged into one knowledge graph.</div></div>
+    <div class="card"><div class="big">2. Detect</div><div class="label">Rule-based + AI checks surface family-firm contracts, ghost entities, incompatible asset growth, repeated awards and fund loops.</div></div>
+    <div class="card"><div class="big">3. Verify</div><div class="label">Every flag links back to its public source records, so journalists and citizens can verify each claim themselves.</div></div>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+renderHeader("/");
+attachSearch(document.getElementById("q"), document.getElementById("qres"));
+
+(async () => {
+  const s = await api("/api/stats");
+  document.getElementById("stats").innerHTML = [
+    [s.entities.toLocaleString("en-IN"), "Entities linked"],
+    [s.contracts.toLocaleString("en-IN"), "Contracts analyzed"],
+    [fmtCr(s.contract_value), "Contract value tracked"],
+    [s.relationships.toLocaleString("en-IN"), "Graph relationships"],
+    [s.flags.toLocaleString("en-IN"), "Red flags detected"],
+  ].map(([v, l]) => `<div class="card"><div class="big">${v}</div><div class="label">${l}</div></div>`).join("");
+  document.getElementById("flaggedTotal").textContent = fmtCr(s.flagged_value) + " flagged";
+
+  const hr = await api("/api/highrisk");
+  document.getElementById("highrisk").innerHTML = hr.map((r) => `
+    <a class="card risk-card" href="/entity?id=${r.id}">
+      <div class="head" style="display:flex;justify-content:space-between">
+        <span class="who">${esc(r.name)}</span> ${riskBadge(r.risk)}
+      </div>
+      <div class="meta">${esc(r.party || "")} · ${esc(r.constituency || "")}, ${esc(r.state || "")} · ${r.flag_count} flag(s) · ${fmtCr(r.flagged_value)}</div>
+      <div class="flag">${esc(r.top_flag || "")}</div>
+    </a>`).join("") || "<p>No flags computed yet.</p>";
+})();
+</script>
+</body>
+</html>

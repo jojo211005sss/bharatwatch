@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About — BharatWatch</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <h1>About BharatWatch</h1>
+  <div class="card">
+    <p><strong>BharatWatch</strong> is a public-data knowledge graph that links Indian politicians and
+    their declared assets and family ties to companies, government contracts, fund flows and public
+    spending — and automatically surfaces statistical red-flag patterns for journalists, researchers
+    and citizens to investigate further. It is inspired by Bruno César's Brazilian public-spending
+    graph, adapted to Indian identifiers and data sources.</p>
+  </div>
+
+  <h2 class="section-title">Methodology: public data only</h2>
+  <div class="card">
+    <p>Every record is ingested from official, publicly accessible portals. No private scraping,
+    no restricted-access sources:</p>
+    <table class="data">
+      <tr><th>Source</th><th>What we use</th><th>Linking key</th></tr>
+      <tr><td><a href="https://affidavit.eci.gov.in/" rel="noopener">ECI Affidavit Portal</a> / <a href="https://www.myneta.info/" rel="noopener">MyNeta (ADR)</a></td><td>Candidate assets, liabilities, income, criminal cases, family details</td><td>PAN, name + constituency</td></tr>
+      <tr><td><a href="https://www.mca.gov.in/" rel="noopener">MCA Master Data</a> / <a href="https://data.gov.in/" rel="noopener">data.gov.in</a></td><td>Company registrations, directors, appointments, charges</td><td>CIN, DIN, PAN</td></tr>
+      <tr><td><a href="https://eprocure.gov.in/" rel="noopener">CPPP / eProcure</a></td><td>Tenders, bids, contract awards</td><td>CIN, supplier name</td></tr>
+      <tr><td><a href="https://gem.gov.in/" rel="noopener">GeM</a></td><td>Procurement orders, buyer/seller details</td><td>GSTIN, CIN</td></tr>
+      <tr><td><a href="https://pfms.nic.in/" rel="noopener">PFMS</a></td><td>Scheme expenditures, payments, DBT dashboards</td><td>Scheme + entity name</td></tr>
+      <tr><td>CVC public lists, GST search, state portals</td><td>Cross-checks and supplements</td><td>GSTIN, PAN</td></tr>
+    </table>
+    <p>Records are merged with deterministic keys first (PAN &gt; DIN &gt; CIN), then AI-assisted fuzzy
+    name matching (honorifics, transliteration, Pvt/Ltd variants). Uncertain matches go to a human
+    review queue — they are never auto-merged.</p>
+  </div>
+
+  <h2 class="section-title">Detection patterns</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Family contracts</strong> — politician → family member (affidavit) → director (DIN) → company → government contract.</li>
+      <li><strong>Incompatible asset growth</strong> — affidavit-to-affidavit growth beyond a generous savings + 12%/yr appreciation ceiling.</li>
+      <li><strong>Repeated awards</strong> — a connected supplier winning a dominant share of contracts from a body the politician oversees.</li>
+      <li><strong>Ghost entities</strong> — companies winning public orders within ~120 days of incorporation, especially at shared addresses.</li>
+      <li><strong>Fund loops</strong> — money cycling company → trust → company within one family network.</li>
+    </ul>
+    <p>Risk scores (0–100%) reflect pattern strength and value involved. They are
+    <em>statistical indicators, not findings of guilt</em>.</p>
+  </div>
+
+  <h2 class="section-title">Limitations &amp; ethics</h2>
+  <div class="card">
+    <ul>
+      <li>Public records contain errors, lags and gaps; identity resolution can mis-match similar names.</li>
+      <li>A flag is a starting point for human investigation — innocent explanations are common (e.g. a competitive bid legitimately won by a relative's firm).</li>
+      <li>Read-only public access; data ingestion is admin-controlled and source-attributed.</li>
+      <li>Corrections: any affected person may request review of source records via the contact channel of the deployment operator.</li>
+    </ul>
+    <p><strong>Disclaimer:</strong> For transparency and informational purposes only — not legal advice.
+    Data is updated periodically from official portals. <strong>This demo instance ships with entirely
+    fictional seed data</strong> to demonstrate the detection engine.</p>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>renderHeader("/about");</script>
+</body>
+</html>
