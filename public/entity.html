@@ -18,7 +18,9 @@ let cy = null, depth = 2;
 const NODE_COLORS = { Politician: "#c0392b", Person: "#b9770e", Company: "#0b66c3",
                       GovtBody: "#0a8f6c", Trust: "#8e44ad", Unknown: "#7f8c8d" };
 const EDGE_COLORS = { Contract_Awarded_To: "#c0392b", Fund_Transfer: "#b9770e",
-                      Family_Link: "#8e44ad", Director_Of: "#0b66c3" };
+                      Family_Link: "#8e44ad", Friend_Link: "#8e44ad", Associate: "#8e44ad", Close_Friend: "#8e44ad", Relative: "#8e44ad",
+                      Director_Of: "#0b66c3", Shareholder_Of: "#0b66c3", Works_At: "#0b66c3", Employee_Of: "#0b66c3", Partner_Of: "#0b66c3",
+                      Shared_Address: "#7f8c8d", Oversees: "#0a8f6c", Directs_Funds_To: "#0a8f6c" };
 
 async function load() {
   let p;
@@ -83,6 +85,7 @@ async function load() {
     <div class="tabs" id="tabs">
       <button data-t="timeline" class="active">Timeline</button>
       ${e.type === 'Politician' ? `<button data-t="tenures">Tenures (${p.tenures.length})</button>` : ''}
+      <button data-t="relationships">Relationships (${p.relationships.length})</button>
       <button data-t="companies">Companies (${p.companies.length})</button>
       <button data-t="contracts">Contracts (${p.contracts.length})</button>
       <button data-t="flows">Fund flows (${p.fund_flows.length})</button>
@@ -102,6 +105,16 @@ async function load() {
         <td>${esc(t.end_date || "Present")}</td><td>${esc(t.source)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
       </table>
     </div>` : ''}
+    <div class="tabpane" id="pane-relationships">
+      <table class="data"><tr><th>From</th><th>To</th><th>Relationship</th><th>Evidence</th><th>Source</th></tr>
+      ${p.relationships.map(r => `<tr>
+        <td><a href="/entity?id=${r.from_id}">${esc(r.from_name)}</a></td>
+        <td><a href="/entity?id=${r.to_id}">${esc(r.to_name)}</a></td>
+        <td><span class="badge" style="background:var(--chip);color:var(--accent)">${esc(r.type)}</span></td>
+        <td>${esc(r.evidence || "")}</td>
+        <td>${esc(r.source || "")}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+      </table>
+    </div>
     <div class="tabpane" id="pane-companies">
       <table class="data"><tr><th>Company</th><th>CIN</th><th>Incorporated</th><th>Linked via</th></tr>
       ${p.companies.map(c => `<tr><td><a href="/entity?id=${c.id}">${esc(c.name)}</a></td>
@@ -135,6 +148,26 @@ async function load() {
         <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>${esc(fn.source)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
       </table>
     </div>` : ''}
+
+    ${p.source_files && p.source_files.length ? `
+    <h2 class="section-title" style="display:flex;align-items:center;gap:8px;margin-top:40px">
+      <span style="color:var(--accent)">🗄️</span> Verification & Source Database
+    </h2>
+    <div class="card" style="margin-top:14px">
+      <p style="margin:0 0 16px 0;font-size:14px;color:var(--muted)">
+        The findings compiled in this risk score profile are backed by localized raw data files ingested directly from primary Indian public portals (ECI, MCA, SPPP). They are located in your workspace under <code>${esc(p.source_dir)}/</code>.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:14px">
+        ${p.source_files.map(sf => `
+          <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px">
+            <span style="font-size:24px;color:var(--accent)">📄</span>
+            <div style="display:flex;flex-direction:column">
+              <span style="font-weight:700;font-size:14px;color:var(--text)">${esc(sf.name)}</span>
+              <span style="font-size:11px;color:var(--muted);font-family:ui-monospace, monospace">${esc(sf.path)}</span>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>` : ""}
     `;
 
   document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {

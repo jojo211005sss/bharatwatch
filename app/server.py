@@ -93,6 +93,30 @@ def graph_for(center_id, depth=2, max_nodes=120):
     return {"nodes": out_nodes, "edges": uniq_edges}
 
 
+def find_source_directory_for_entity(entity_name):
+    """Scan workspace directories to see which one contains CSV data about this entity."""
+    import csv
+    entity_name_lower = entity_name.lower()
+    for item in os.listdir(ROOT):
+        item_path = os.path.join(ROOT, item)
+        if os.path.isdir(item_path) and not item.startswith('.'):
+            # Check for CSV files in this directory
+            for f in os.listdir(item_path):
+                if f.endswith('.csv'):
+                    f_path = os.path.join(item_path, f)
+                    try:
+                        with open(f_path, 'r', encoding='utf-8', errors='ignore') as csvfile:
+                            content = csvfile.read().lower()
+                            if entity_name_lower in content:
+                                return item
+                    except Exception:
+                        pass
+    # Fallback to state or name heuristics
+    if "dilawar" in entity_name_lower:
+        return "dilawar_data"
+    return "sample_data"
+
+
 def entity_profile(eid):
     c = get_db().cursor()
     e = c.execute("SELECT * FROM entities WHERE id=?", (eid,)).fetchone()
@@ -108,16 +132,76 @@ def entity_profile(eid):
         SELECT r.*, a.name AS from_name, b.name AS to_name
         FROM relationships r JOIN entities a ON a.id=r.from_id JOIN entities b ON b.id=r.to_id
         WHERE r.from_id=? OR r.to_id=?""", (eid, eid)))
-    # companies linked through self or family
-    fam_ids = {eid} | {r["to_id"] if r["from_id"] == eid else r["from_id"]
-                       for r in c.execute(
-                           "SELECT from_id,to_id FROM relationships WHERE type='Family_Link' AND (from_id=? OR to_id=?)",
-                           (eid, eid))}
-    q = ",".join("?" * len(fam_ids))
-    companies = rows_to_dicts(c.execute(f"""
-        SELECT DISTINCT e.*, p.name AS via FROM relationships r
-        JOIN entities e ON e.id=r.to_id JOIN entities p ON p.id=r.from_id
-        WHERE r.type IN ('Director_Of','Shareholder_Of') AND r.from_id IN ({q})""", tuple(fam_ids)))
+    # Find all first-degree personal connections of eid (Family, Friends, Associates, etc.)
+    personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self"}}
+    personal_rel_types = {'family_link', 'friend_link', 'associate', 'spouse', 'son', 'daughter', 'child', 'parent', 'sibling', 'brother', 'sister', 'wife', 'husband', 'relative'}
+    
+    rows = c.execute("""
+        SELECT r.from_id, r.to_id, r.type, r.evidence
+        FROM relationships r
+        WHERE r.from_id = ? OR r.to_id = ?
+    """, (eid, eid)).fetchall()
+    
+    for r in rows:
+        other_id = r["to_id"] if r["from_id"] == eid else r["from_id"]
+        oth = c.execute("SELECT name, type FROM entities WHERE id = ?", (other_id,)).fetchone()
+        if oth:
+            oth_type = oth["type"]
+            if oth_type in ("Person", "Politician") or r["type"].lower() in personal_rel_types:
+                desc = f"{r['type']}"
+                if r['evidence']:
+                    desc += f" ({r['evidence']})"
+                personal_connections[other_id] = {
+                    "name": oth["name"],
+                    "rel_to_pol": desc
+                }
+
+    comp_list = []
+    if personal_connections:
+        p_ids = list(personal_connections.keys())
+        q = ",".join("?" * len(p_ids))
+        links = c.execute(f"""
+            SELECT r.from_id, r.to_id, r.type, r.evidence, r.source
+            FROM relationships r
+            WHERE r.from_id IN ({q}) OR r.to_id IN ({q})
+        """, tuple(p_ids) + tuple(p_ids)).fetchall()
+        
+        for r in links:
+            from_in_p = r["from_id"] in personal_connections
+            to_in_p = r["to_id"] in personal_connections
+            if from_in_p and to_in_p:
+                continue
+            if from_in_p:
+                p_id, e_id = r["from_id"], r["to_id"]
+            elif to_in_p:
+                p_id, e_id = r["to_id"], r["from_id"]
+            else:
+                continue
+                
+            e_row = c.execute("SELECT * FROM entities WHERE id = ?", (e_id,)).fetchone()
+            if e_row and e_row["type"] in ("Company", "Trust", "GovtBody"):
+                comp_ent = dict(e_row)
+                p_info = personal_connections[p_id]
+                via_desc = f"{p_info['name']}"
+                if p_id != eid:
+                    via_desc += f" [{p_info['rel_to_pol']}]"
+                via_desc += f" — {r['type']}"
+                if r['evidence']:
+                    via_desc += f" ({r['evidence']})"
+                comp_ent["via"] = via_desc
+                comp_list.append(comp_ent)
+                
+    # Deduplicate and group companies
+    deduped_companies = {}
+    for comp in comp_list:
+        cid = comp["id"]
+        if cid not in deduped_companies:
+            deduped_companies[cid] = comp
+        else:
+            existing_trails = deduped_companies[cid]["via"].split("; ")
+            if comp["via"] not in existing_trails:
+                deduped_companies[cid]["via"] += "; " + comp["via"]
+    companies = list(deduped_companies.values())
     comp_ids = [co["id"] for co in companies] or [-1]
     qc = ",".join("?" * len(comp_ids))
     contracts = rows_to_dicts(c.execute(f"""
@@ -125,7 +209,7 @@ def entity_profile(eid):
         JOIN entities b ON b.id=k.buyer_id JOIN entities s ON s.id=k.supplier_id
         WHERE k.supplier_id IN ({qc}) OR k.buyer_id=? ORDER BY k.award_date""",
         tuple(comp_ids) + (eid,)))
-    net_ids = tuple(fam_ids) + tuple(comp_ids)
+    net_ids = tuple(personal_connections.keys()) + tuple(comp_ids)
     qn = ",".join("?" * len(net_ids))
     flows = rows_to_dicts(c.execute(f"""
         SELECT f.*, a.name AS from_name, b.name AS to_name FROM fund_flows f
@@ -163,12 +247,25 @@ def entity_profile(eid):
                          "text": f"Balance sheet FY{fn['year']}: Revenue ₹{fn['revenue'] / 1e7:.1f} Cr, Assets ₹{fn['assets'] / 1e7:.1f} Cr"})
         
     timeline.sort(key=lambda t: t["date"])
+    source_dir = find_source_directory_for_entity(e["name"])
+    source_files = []
+    if source_dir:
+        dir_path = os.path.join(ROOT, source_dir)
+        if os.path.exists(dir_path):
+            for f in sorted(os.listdir(dir_path)):
+                if f.endswith('.csv'):
+                    source_files.append({
+                        "name": f,
+                        "path": f"{source_dir}/{f}"
+                    })
+                    
     risk = max([f["risk_score"] for f in flags], default=0)
     return {"entity": dict(e), "declarations": decls, "flags": flags, "risk": risk,
             "relationships": rels, "companies": companies, "contracts": contracts,
             "fund_flows": flows, "timeline": timeline,
             "flagged_value": sum(f["value_involved"] or 0 for f in flags),
-            "tenures": tenures, "financials": financials}
+            "tenures": tenures, "financials": financials,
+            "source_dir": source_dir, "source_files": source_files}
 
 
 # ---------------------------------------------------------------- handler
