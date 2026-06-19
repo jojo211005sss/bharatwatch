@@ -149,7 +149,7 @@ async function load() {
       </table>
     </div>` : ''}
 
-    ${p.source_files && p.source_files.length ? `
+    ${p.source_links && p.source_links.length ? `
     <h2 class="section-title" style="display:flex;align-items:center;gap:8px;margin-top:40px">
       <span style="color:var(--accent)">🗄️</span> Verification & Source Database
     </h2>
@@ -157,15 +157,15 @@ async function load() {
       <p style="margin:0 0 16px 0;font-size:14px;color:var(--muted)">
         The findings compiled in this risk score profile are backed by localized raw data files ingested directly from primary Indian public portals (ECI, MCA, SPPP). They are located in your workspace under <code>${esc(p.source_dir)}/</code>.
       </p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:14px">
-        ${p.source_files.map(sf => `
-          <div style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px">
-            <span style="font-size:24px;color:var(--accent)">📄</span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:14px">
+        ${p.source_links.map(sl => `
+          <a href="${esc(sl.url)}" target="_blank" style="display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;color:inherit;text-decoration:none;transition:transform 0.15s, box-shadow 0.15s;display:flex" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='var(--shadow)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+            <span style="font-size:24px;color:var(--accent)">🌐</span>
             <div style="display:flex;flex-direction:column">
-              <span style="font-weight:700;font-size:14px;color:var(--text)">${esc(sf.name)}</span>
-              <span style="font-size:11px;color:var(--muted);font-family:ui-monospace, monospace">${esc(sf.path)}</span>
+              <span style="font-weight:700;font-size:14px;color:var(--text)">${esc(sl.domain)}</span>
+              <span style="font-size:11px;color:var(--muted)">Source: ${esc(sl.source)}</span>
             </div>
-          </div>`).join("")}
+          </a>`).join("")}
       </div>
     </div>` : ""}
     `;

@@ -247,25 +247,84 @@ def entity_profile(eid):
                          "text": f"Balance sheet FY{fn['year']}: Revenue ₹{fn['revenue'] / 1e7:.1f} Cr, Assets ₹{fn['assets'] / 1e7:.1f} Cr"})
         
     timeline.sort(key=lambda t: t["date"])
+    
+    # Map raw sources to public URLs
+    PORTAL_URLS = {
+        "eci": "https://affidavit.eci.gov.in/",
+        "myneta": "https://www.myneta.info/",
+        "affidavit": "https://affidavit.eci.gov.in/",
+        "mca": "https://www.mca.gov.in/",
+        "director": "https://www.mca.gov.in/",
+        "company": "https://www.mca.gov.in/",
+        "cppp": "https://eprocure.gov.in/cppp/",
+        "gem": "https://gem.gov.in/",
+        "pfms": "https://pfms.nic.in/",
+        "mplads": "https://www.mplads.gov.in/",
+        "sppp": "https://sppp.rajasthan.gov.in/",
+        "rajasthan": "https://sppp.rajasthan.gov.in/",
+        "sansad": "https://sansad.in/",
+        "state gazette": "https://sppp.rajasthan.gov.in/"
+    }
+    
+    sources = set()
+    for r in decls:
+        if r.get("source"): sources.add(r["source"])
+    for r in rels:
+        if r.get("source"): sources.add(r["source"])
+    for r in contracts:
+        if r.get("source"): sources.add(r["source"])
+    for r in flows:
+        if r.get("source"): sources.add(r["source"])
+    for r in tenures:
+        if r.get("source"): sources.add(r["source"])
+    for r in financials:
+        if r.get("source"): sources.add(r["source"])
+        
+    source_links = []
+    seen_urls = set()
+    for s in sorted(sources):
+        s_lower = s.lower()
+        url = None
+        for key, val in PORTAL_URLS.items():
+            if key == "director" and "directory" in s_lower:
+                continue
+            if key in s_lower:
+                url = val
+                break
+        if not url:
+            if "affidavit" in s_lower or "eci" in s_lower or "election" in s_lower:
+                url = "https://affidavit.eci.gov.in/"
+            elif "mca" in s_lower or "filing" in s_lower or "company" in s_lower:
+                url = "https://www.mca.gov.in/"
+            elif "contract" in s_lower or "tender" in s_lower or "procure" in s_lower:
+                url = "https://eprocure.gov.in/cppp/"
+            else:
+                url = "https://affidavit.eci.gov.in/"
+                
+        if url not in seen_urls:
+            seen_urls.add(url)
+            domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+            source_links.append({
+                "source": s,
+                "url": url,
+                "domain": domain
+            })
+            
+    if not source_links:
+        source_links = [
+            {"source": "ECI Affidavits", "url": "https://affidavit.eci.gov.in/", "domain": "affidavit.eci.gov.in"},
+            {"source": "MCA Master Data", "url": "https://www.mca.gov.in/", "domain": "mca.gov.in"},
+            {"source": "CPPP Procurement", "url": "https://eprocure.gov.in/cppp/", "domain": "eprocure.gov.in"}
+        ]
+        
     source_dir = find_source_directory_for_entity(e["name"])
-    source_files = []
-    if source_dir:
-        dir_path = os.path.join(ROOT, source_dir)
-        if os.path.exists(dir_path):
-            for f in sorted(os.listdir(dir_path)):
-                if f.endswith('.csv'):
-                    source_files.append({
-                        "name": f,
-                        "path": f"{source_dir}/{f}"
-                    })
-                    
     risk = max([f["risk_score"] for f in flags], default=0)
     return {"entity": dict(e), "declarations": decls, "flags": flags, "risk": risk,
             "relationships": rels, "companies": companies, "contracts": contracts,
             "fund_flows": flows, "timeline": timeline,
             "flagged_value": sum(f["value_involved"] or 0 for f in flags),
             "tenures": tenures, "financials": financials,
-            "source_dir": source_dir, "source_files": source_files}
+            "source_dir": source_dir, "source_links": source_links}
 
 
 # ---------------------------------------------------------------- handler
