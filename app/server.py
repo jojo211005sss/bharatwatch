@@ -122,6 +122,7 @@ def entity_profile(eid):
     e = c.execute("SELECT * FROM entities WHERE id=?", (eid,)).fetchone()
     if not e:
         return None
+    e = dict(e)
     decls = rows_to_dicts(c.execute(
         "SELECT * FROM declarations WHERE entity_id=? ORDER BY year", (eid,)))
     flags = rows_to_dicts(c.execute(
