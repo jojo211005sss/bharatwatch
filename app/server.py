@@ -133,7 +133,7 @@ def entity_profile(eid):
         FROM relationships r JOIN entities a ON a.id=r.from_id JOIN entities b ON b.id=r.to_id
         WHERE r.from_id=? OR r.to_id=?""", (eid, eid)))
     # Find all first-degree personal connections of eid (Family, Friends, Associates, etc.)
-    personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self"}}
+    personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self", "type": e["type"], "din": e.get("din"), "pan": e.get("pan"), "position": e.get("position"), "notes": e.get("notes")}}
     personal_rel_types = {'family_link', 'friend_link', 'associate', 'spouse', 'son', 'daughter', 'child', 'parent', 'sibling', 'brother', 'sister', 'wife', 'husband', 'relative'}
     
     rows = c.execute("""
@@ -144,7 +144,7 @@ def entity_profile(eid):
     
     for r in rows:
         other_id = r["to_id"] if r["from_id"] == eid else r["from_id"]
-        oth = c.execute("SELECT name, type FROM entities WHERE id = ?", (other_id,)).fetchone()
+        oth = c.execute("SELECT * FROM entities WHERE id = ?", (other_id,)).fetchone()
         if oth:
             oth_type = oth["type"]
             if oth_type in ("Person", "Politician") or r["type"].lower() in personal_rel_types:
@@ -152,9 +152,48 @@ def entity_profile(eid):
                 if r['evidence']:
                     desc += f" ({r['evidence']})"
                 personal_connections[other_id] = {
+                    "id": oth["id"],
                     "name": oth["name"],
+                    "type": oth["type"],
+                    "din": oth["din"],
+                    "pan": oth["pan"],
+                    "position": oth["position"],
+                    "notes": oth["notes"],
                     "rel_to_pol": desc
                 }
+
+    # Deeply search for details of the first-degree connections
+    first_degree_connections = []
+    for pid, pinfo in personal_connections.items():
+        if pid == eid:
+            continue
+        # Get roles of this family member in companies/trusts
+        roles_rows = c.execute("""
+            SELECT r.type, r.evidence, e.id AS entity_id, e.name AS entity_name, e.type AS entity_type
+            FROM relationships r
+            JOIN entities e ON e.id = r.to_id
+            WHERE r.from_id = ? AND r.type IN ('Director_Of', 'Shareholder_Of', 'Works_At', 'Employee_Of')
+        """, (pid,)).fetchall()
+        roles_list = []
+        for rr in roles_rows:
+            roles_list.append({
+                "type": rr["type"],
+                "evidence": rr["evidence"],
+                "entity_id": rr["entity_id"],
+                "entity_name": rr["entity_name"],
+                "entity_type": rr["entity_type"]
+            })
+        first_degree_connections.append({
+            "id": pid,
+            "name": pinfo["name"],
+            "type": pinfo["type"],
+            "rel_to_pol": pinfo["rel_to_pol"],
+            "din": pinfo.get("din"),
+            "pan": pinfo.get("pan"),
+            "position": pinfo.get("position"),
+            "notes": pinfo.get("notes"),
+            "roles": roles_list
+        })
 
     comp_list = []
     if personal_connections:
@@ -324,7 +363,8 @@ def entity_profile(eid):
             "fund_flows": flows, "timeline": timeline,
             "flagged_value": sum(f["value_involved"] or 0 for f in flags),
             "tenures": tenures, "financials": financials,
-            "source_dir": source_dir, "source_links": source_links}
+            "source_dir": source_dir, "source_links": source_links,
+            "first_degree_connections": first_degree_connections}
 
 
 # ---------------------------------------------------------------- handler

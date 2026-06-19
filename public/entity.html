@@ -86,6 +86,7 @@ async function load() {
       <button data-t="timeline" class="active">Timeline</button>
       ${e.type === 'Politician' ? `<button data-t="tenures">Tenures (${p.tenures.length})</button>` : ''}
       <button data-t="relationships">Relationships (${p.relationships.length})</button>
+      ${e.type === 'Politician' ? `<button data-t="family">Family & Associates (${p.first_degree_connections.length})</button>` : ''}
       <button data-t="companies">Companies (${p.companies.length})</button>
       <button data-t="contracts">Contracts (${p.contracts.length})</button>
       <button data-t="flows">Fund flows (${p.fund_flows.length})</button>
@@ -115,6 +116,38 @@ async function load() {
         <td>${esc(r.source || "")}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>
+    ${e.type === 'Politician' ? `
+    <div class="tabpane" id="pane-family">
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:10px">
+        ${p.first_degree_connections.map(fd => `
+          <div class="card" style="border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--panel2)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h3 style="margin:0"><a href="/entity?id=${fd.id}">${esc(fd.name)}</a></h3>
+              <span class="badge" style="background:var(--chip);color:var(--accent);font-size:12px;padding:4px 8px;border-radius:6px">${esc(fd.rel_to_pol)}</span>
+            </div>
+            <dl class="kv" style="margin-bottom:12px;font-size:13px">
+              ${fd.din ? `<dt>DIN</dt><dd>${esc(fd.din)}</dd>` : ""}
+              ${fd.pan ? `<dt>PAN</dt><dd>${esc(fd.pan)}</dd>` : ""}
+              ${fd.position ? `<dt>Position</dt><dd>${esc(fd.position)}</dd>` : ""}
+              ${fd.notes ? `<dt>Notes</dt><dd>${esc(fd.notes)}</dd>` : ""}
+            </dl>
+            ${fd.roles.length ? `
+              <h4 style="margin:12px 0 6px 0;font-size:13px;color:var(--muted)">Associated Entities & Roles</h4>
+              <table class="data" style="font-size:12px">
+                <tr><th>Connected Entity</th><th>Role / Relationship</th><th>Evidence</th></tr>
+                ${fd.roles.map(role => `
+                  <tr>
+                    <td><a href="/entity?id=${role.entity_id}">${esc(role.entity_name)}</a> (${esc(role.entity_type)})</td>
+                    <td><span class="badge" style="background:var(--chip);color:var(--accent);font-size:10px">${esc(role.type)}</span></td>
+                    <td>${esc(role.evidence || "")}</td>
+                  </tr>
+                `).join("")}
+              </table>
+            ` : `<p style="margin:0;font-size:12px;color:var(--muted)">No associated corporate roles or trusts found.</p>`}
+          </div>
+        `).join("") || "<p>No family or first-degree associates found.</p>"}
+      </div>
+    </div>` : ''}
     <div class="tabpane" id="pane-companies">
       <table class="data"><tr><th>Company</th><th>CIN</th><th>Incorporated</th><th>Linked via</th></tr>
       ${p.companies.map(c => `<tr><td><a href="/entity?id=${c.id}">${esc(c.name)}</a></td>
