@@ -20,7 +20,18 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db import get_db
 from resolve import find_entity, ai_adjudicate
+from verify_sources import PRIMARY_DOMAINS, SECONDARY_DOMAINS
+from urllib.parse import urlparse
 
+def validate_source(url: str):
+    """Validate that a source URL belongs to an allowed domain.
+    Raises ValueError if the URL is missing or its domain is not in the allowed sets.
+    """
+    if not url or not url.startswith("http"):
+        raise ValueError(f"Invalid source URL: {url}")
+    domain = urlparse(url).netloc
+    if domain not in PRIMARY_DOMAINS and domain not in SECONDARY_DOMAINS:
+        raise ValueError(f"Unsupported source domain '{domain}' in URL {url}")
 DATASETS = ("affidavits", "companies", "directors", "contracts", "fundflows", "relations", "financials", "tenures")
 
 
@@ -89,6 +100,17 @@ def import_csv(dataset, csv_text, filename="upload.csv"):
 
     for row in rows:
         src = row.get("source") or f"{dataset} CSV ({filename})"
+        # Validate source URL if provided
+        try:
+            validate_source(src)
+        except ValueError as e:
+            # Queue invalid source for review
+            c.execute(
+                "INSERT INTO review_queue (kind, payload, suggestion, confidence) VALUES (?,?,?,?)",
+                ("invalid_source", json.dumps(row), json.dumps({"error": str(e)}), 0),
+            )
+            queued += 1
+            continue
         if dataset == "affidavits":
             eid, _ = _get_or_create(c, row, "Politician", src)
             if eid is None:

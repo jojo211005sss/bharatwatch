@@ -5,15 +5,47 @@ Queries all unique HTTP source URLs in the database, maps them to the associated
 entities, fetches them, and validates that they load successfully and contain
 relevant keywords (such as the politician or company name) to verify authenticity.
 """
+import argparse
 import sqlite3
+import sys
+
 import urllib.request
+import os
 import urllib.error
 import ssl
 import re
 import time
 
+# Bypass SSL verification globally for urllib (fixes macOS SSL certificate verify failures)
+ssl._create_default_https_context = ssl._create_unverified_context
+
+try:
+    from agent_reach.channels.web import WebChannel
+    AGENT_REACH_AVAILABLE = True
+except ImportError:
+    AGENT_REACH_AVAILABLE = False
+
+
 DB_PATH = "data/bharatwatch.db"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# Domains considered primary – must contain required identifier keywords
+PRIMARY_DOMAINS = {
+    "data.gov.in",
+    "eci.gov.in",
+    "myneta.info",
+    "pfms.nic.in",
+}
+
+# Secondary domains – allowed to bypass missing required keywords (trusted sources)
+SECONDARY_DOMAINS = {
+    "zaubacorp.com",
+    "business-standard.com",
+    "ndtv.com",
+    "cvigil.in",
+    "cybercrime.gov.in",
+    "transparency.org",
+}
 
 
 def get_unique_sources():
@@ -68,7 +100,6 @@ def get_unique_sources():
     conn.close()
     return urls
 
-
 def verify_url(url, table_name, required_keywords, optional_keywords):
     req_list = sorted(list(required_keywords))
     opt_list = sorted(list(optional_keywords))
@@ -80,77 +111,138 @@ def verify_url(url, table_name, required_keywords, optional_keywords):
         url,
         headers={"User-Agent": USER_AGENT}
     )
-    
+
     # Bypass SSL verification
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
+    html = ""
+    fetch_method = "Standard HTTP"
+    
     try:
         # Respectful delay between requests
         time.sleep(1.5)
-        
         with urllib.request.urlopen(req, timeout=12, context=ctx) as response:
-            status = response.status
             html = response.read().decode('utf-8', errors='ignore').lower()
-            
-            # Check required & optional keywords
-            missing_required = [kw for kw in req_list if kw not in html]
-            found_optional = [kw for kw in opt_list if kw in html]
-            
-            if not missing_required:
-                print(f" \033[92m[SUCCESS]\033[0m HTTP {status} - Verified! Required found: {req_list}, Optional found: {found_optional}")
-                return True
-            else:
-                # Trusted domains bypass (including official reporting platforms)
-                trusted_domains = [
-                    "zaubacorp.com",
-                    "myneta.info",
-                    "business-standard.com",
-                    "ndtv.com",
-                    "cvigil.in",
-                    "cybercrime.gov.in",
-                    "transparency.org",
-                ]
-                if any(domain in url for domain in trusted_domains):
-                    print(f"    \033[92m[SUCCESS (BYPASS)]\033[0m Trusted source {url.split('/')[2]} accepted.")
-                    return True
-                # Existing ZaubaCorp specific bypass (maintained for clarity)
-                if "zaubacorp.com" in url:
-                    print("    \033[92m[SUCCESS (BYPASS)]\033[0m HTTP 200 on ZaubaCorp. Page exists (anti-bot protected).")
-                    return True
-                # MyNeta etc.
-                print(f"    \033[91m[WARNING]\033[0m Page loaded but MISSING required keywords: {missing_required}. (Found optional: {found_optional})")
-                return False
-                
-    except urllib.error.HTTPError as e:
-        if e.code in (403, 429, 503) and ("zaubacorp" in url or "myneta" in url or "business-standard" in url or "ndtv" in url):
-            print(f" \033[92m[SUCCESS (BYPASS)]\033[0m HTTP {e.code} on {url.split('/')[2]}. Concession for anti-bot/rate-limit.")
-            return True
-        print(f" \033[91m[FAILED]\033[0m HTTP Error {e.code}: {e.reason}")
-        return False
-    except urllib.error.URLError as e:
-        print(f" \033[91m[FAILED]\033[0m URL Error: {e.reason}")
-        return False
     except Exception as e:
-        print(f" \033[91m[FAILED]\033[0m Unexpected error: {e}")
-        return False
+        if AGENT_REACH_AVAILABLE:
+            print(f"    Standard HTTP fetch failed ({e}). Trying Agent-Reach (Jina Reader)...")
+            try:
+                web = WebChannel()
+                html = web.read(url).lower()
+                fetch_method = "Agent-Reach (Jina Reader)"
+            except Exception as e_ar:
+                msg = f"[FAILED] Both Standard HTTP ({e}) and Agent-Reach ({e_ar}) failed."
+                print(f"    \033[91m{msg}\033[0m")
+                return "FAILURE", msg
+        else:
+            if isinstance(e, urllib.error.HTTPError):
+                if e.code in (403, 429, 503) and ("zaubacorp" in url or "myneta" in url or "business-standard" in url or "ndtv" in url):
+                    msg = f"[SUCCESS (BYPASS)] HTTP {e.code} on {url.split('/')[2]}. Concession for anti-bot/rate-limit."
+                    print(f"    \033[92m{msg}\033[0m")
+                    return "BYPASS", msg
+                msg = f"[FAILED] HTTP Error {e.code}: {e.reason}"
+            elif isinstance(e, urllib.error.URLError):
+                msg = f"[FAILED] URL Error: {e.reason}"
+            else:
+                msg = f"[FAILED] Unexpected error: {e}"
+            print(f"    \033[91m{msg}\033[0m")
+            return "FAILURE", msg
+
+    missing_required = [kw for kw in req_list if kw not in html]
+    found_optional = [kw for kw in opt_list if kw in html]
+    
+    # If standard fetch was used, but had missing required keywords, try Agent-Reach
+    if missing_required and fetch_method == "Standard HTTP" and AGENT_REACH_AVAILABLE:
+        print(f"    Standard HTTP missing required keywords. Trying Agent-Reach (Jina Reader)...")
+        try:
+            web = WebChannel()
+            html_ar = web.read(url).lower()
+            missing_required_ar = [kw for kw in req_list if kw not in html_ar]
+            if not missing_required_ar or len(missing_required_ar) < len(missing_required):
+                html = html_ar
+                missing_required = missing_required_ar
+                found_optional = [kw for kw in opt_list if kw in html_ar]
+                fetch_method = "Agent-Reach (Jina Reader)"
+        except Exception as e_ar:
+            print(f"    Agent-Reach fallback check failed: {e_ar}")
+
+    if not missing_required:
+        msg = f"[SUCCESS] ({fetch_method}) - Required keywords present. Optional found: {found_optional}"
+        print(f"    \033[92m{msg}\033[0m")
+        return "SUCCESS", msg
+
+    # Domain-based bypass logic
+    from urllib.parse import urlparse
+    domain = urlparse(url).netloc
+    if domain in SECONDARY_DOMAINS:
+        msg = f"[SUCCESS (BYPASS)] Trusted secondary source {domain} accepted."
+        print(f"    \033[92m{msg}\033[0m")
+        return "BYPASS", msg
+    if domain in PRIMARY_DOMAINS:
+        msg = f"[FAILURE] Primary source {domain} missing required keywords: {missing_required}. Optional found: {found_optional}"
+        print(f"    \033[91m{msg}\033[0m")
+        return "FAILURE", msg
+    if "zaubacorp.com" in url:
+        msg = "[SUCCESS (BYPASS)] ZaubaCorp page accessible."
+        print(f"    \033[92m{msg}\033[0m")
+        return "BYPASS", msg
+    msg = f"[WARNING] Missing required keywords: {missing_required}. Optional found: {found_optional} (via {fetch_method})"
+    print(f"    \033[91m{msg}\033[0m")
+    return "WARNING", msg
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Verify source URLs for BharatWatch")
+    parser.add_argument("--strict", action="store_true", help="Fail verification if any source is not SUCCESS or BYPASS")
+    parser.add_argument("--report", default="verify_report.txt", help="Path to write verification report")
+    args = parser.parse_args()
+
     print("BharatWatch Source Verification Tool")
     print("====================================")
     sources = get_unique_sources()
     print(f"Found {len(sources)} unique HTTP source URLs to verify.\n")
-    
-    success_count = 0
-    for url, (table, req_kws, opt_kws) in sources.items():
-        if verify_url(url, table, req_kws, opt_kws):
-            success_count += 1
-            
-    print("\n====================================")
-    print(f"Verification Summary: {success_count}/{len(sources)} sources successfully verified.")
 
+    success_count = 0
+    bypass_count = 0
+    warning_count = 0
+    failure_count = 0
+    details = []
+    for url, (table, req_kws, opt_kws) in sources.items():
+        status, msg = verify_url(url, table, req_kws, opt_kws)
+        details.append(f"{url} ({table}) -> {status}: {msg}")
+        if status == "SUCCESS":
+            success_count += 1
+        elif status == "BYPASS":
+            bypass_count += 1
+        elif status == "WARNING":
+            warning_count += 1
+        else:
+            failure_count += 1
+
+    # Write report
+    with open(args.report, "w", encoding="utf-8") as f:
+        f.write("BharatWatch Source Verification Report\n")
+        f.write("=====================================\n\n")
+        f.write(f"Total sources: {len(sources)}\n")
+        f.write(f"Success: {success_count}\n")
+        f.write(f"Bypass: {bypass_count}\n")
+        f.write(f"Warnings: {warning_count}\n")
+        f.write(f"Failures: {failure_count}\n\n")
+        f.write("Details:\n")
+        for line in details:
+            f.write(line + "\n")
+
+    print("\n====================================")
+    print(f"Verification Summary: {success_count + bypass_count}/{len(sources)} sources successfully verified (including bypasses).")
+    print(f"Warnings: {warning_count}, Failures: {failure_count}")
+    print(f"Report written to {args.report}")
+
+    if args.strict and (warning_count > 0 or failure_count > 0):
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

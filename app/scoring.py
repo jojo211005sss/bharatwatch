@@ -49,10 +49,17 @@ def _family_web(c, pol_id):
         curr_id, depth, curr_how = queue.pop(0)
         if depth >= 3:
             continue
+        # Primary family links
         rows = c.execute(
             "SELECT from_id, to_id, evidence FROM relationships WHERE type='Family_Link' AND (from_id=? OR to_id=?)",
             (curr_id, curr_id),
         ).fetchall()
+        # Additional close family relations (spouse, sibling)
+        extra = c.execute(
+            "SELECT from_id, to_id, evidence FROM relationships WHERE type IN ('Spouse_Of','Sibling_Of') AND (from_id=? OR to_id=?)",
+            (curr_id, curr_id),
+        ).fetchall()
+        rows.extend(extra)
         for r in rows:
             other = r["to_id"] if r["from_id"] == curr_id else r["from_id"]
             if other not in web:
@@ -67,11 +74,11 @@ def _family_web(c, pol_id):
 
 
 def _companies_of(c, person_ids):
-    """{company_id: (person_id, evidence)} for Director_Of/Shareholder_Of links."""
+    """{company_id: (person_id, evidence)} for Director_Of, Shareholder_Of, Beneficial_Owner_Of, Trustee_Of links."""
     out = {}
     for pid in person_ids:
         rows = c.execute(
-            "SELECT to_id, type, evidence FROM relationships WHERE from_id=? AND type IN ('Director_Of','Shareholder_Of')",
+            "SELECT to_id, type, evidence FROM relationships WHERE from_id=? AND type IN ('Director_Of','Shareholder_Of','Beneficial_Owner_Of','Trustee_Of')",
             (pid,),
         ).fetchall()
         for r in rows:
@@ -556,8 +563,439 @@ def rule_policy_conflict(c, pol):
               explanation, total_val, items)
 
 
-RULES = [rule_family_contracts, rule_asset_growth, rule_repeated_awards,
-         rule_ghost_entity, rule_fund_loop, rule_loan_quid_pro_quo, rule_policy_conflict]
+def rule_scam_detection(c, pol):
+    """Flag any contract linked to the politician's family network whose
+    title or description contains scam/fraud/irregularity keywords.
+    Per user directive: any scam counts, not just education-related."""
+    web = _family_web(c, pol["id"])
+    family_only = {k: v for k, v in web.items() if k != pol["id"]}
+    if not family_only:
+        return
+    companies = _companies_of(c, family_only.keys())
+    if not companies:
+        return
+
+    scam_keywords = [
+        "scam", "fraud", "cheating", "misuse", "embezzlement",
+        "irregularity", "siphon", "kickback", "bribe", "corruption",
+        "laundering", "disproportionate", "benami", "bogus", "fake",
+        "shell", "hawala", "ponzi", "chit fund", "illegal",
+    ]
+
+    items, total_val = [], 0
+    for comp_id, (pid, ev) in companies.items():
+        rows = c.execute(
+            "SELECT * FROM contracts WHERE supplier_id=?", (comp_id,)
+        ).fetchall()
+        for r in rows:
+            text = ((r["title"] or "") + " " + (r["description"] or "")).lower()
+            matched = [kw for kw in scam_keywords if kw in text]
+            if not matched:
+                continue
+            in_tenure = _is_during_tenure(c, pol["id"], r["award_date"])
+            total_val += r["value"]
+            items.append({
+                "tender_id": r["tender_id"], "title": r["title"],
+                "value": r["value"], "buyer": _name(c, r["buyer_id"]),
+                "supplier": _name(c, comp_id),
+                "award_date": r["award_date"],
+                "matched_keywords": matched,
+                "via": f"{_name(c, pid)} ({ev})",
+                "source": r["source"],
+                "during_tenure": in_tenure,
+            })
+
+    if not items:
+        return
+
+    score = _value_boost(total_val, base=45, per_log=20, cap=95)
+    if any(i["during_tenure"] for i in items):
+        score = min(97, score + 10)
+
+    kw_summary = ", ".join(sorted({kw for i in items for kw in i["matched_keywords"]}))
+    explanation = (
+        f"Scam/fraud indicators detected: {len(items)} contract(s) worth {fmt_cr(total_val)} "
+        f"awarded to family-linked firms of {pol['name']} contain keywords [{kw_summary}]. "
+        f"Workflow: Politician → Family_Link → Director_Of/Shareholder_Of → Company wins "
+        f"contracts flagged with irregularity language. "
+        f"Pattern: Potential scam linkage (contract text analysis)."
+    )
+    _add_flag(c, pol["id"], "SCAM_DETECTION", score,
+              f"Scam indicators in {len(items)} contracts ({fmt_cr(total_val)})",
+              explanation, total_val, items)
+
+
+def rule_media_capture(c, pol):
+    """Identify media-industry contracts awarded to family-linked firms.
+    Note: media contracts are flagged but NOT treated as a perfect source.
+    Includes comparison with indirect electoral-bond connections if present."""
+    web = _family_web(c, pol["id"])
+    family_only = {k: v for k, v in web.items() if k != pol["id"]}
+    if not family_only:
+        return
+    companies = _companies_of(c, family_only.keys())
+    if not companies:
+        return
+
+    media_keywords = [
+        "media", "advertising", "broadcast", "news", "newspaper",
+        "television", "tv channel", "print media", "digital media",
+        "publicity", "pr agency", "communication",
+    ]
+
+    items, total_val = [], 0
+    for comp_id, (pid, ev) in companies.items():
+        comp = c.execute("SELECT * FROM entities WHERE id=?", (comp_id,)).fetchone()
+        comp_name_lower = (comp["name"] or "").lower() if comp else ""
+        comp_notes_lower = (comp["notes"] or "").lower() if comp else ""
+
+        rows = c.execute(
+            "SELECT * FROM contracts WHERE supplier_id=?", (comp_id,)
+        ).fetchall()
+        for r in rows:
+            text = ((r["title"] or "") + " " + (r["description"] or "")).lower()
+            match_kw = None
+            for kw in media_keywords:
+                if kw in text or kw in comp_name_lower or kw in comp_notes_lower:
+                    match_kw = kw
+                    break
+            if not match_kw:
+                continue
+            in_tenure = _is_during_tenure(c, pol["id"], r["award_date"])
+            total_val += r["value"]
+            items.append({
+                "tender_id": r["tender_id"], "title": r["title"],
+                "value": r["value"], "buyer": _name(c, r["buyer_id"]),
+                "supplier": _name(c, comp_id),
+                "award_date": r["award_date"],
+                "media_keyword": match_kw,
+                "via": f"{_name(c, pid)} ({ev})",
+                "source": r["source"],
+                "during_tenure": in_tenure,
+            })
+
+    if not items:
+        return
+
+    # Check for indirect electoral-bond connections (donors to politician or party)
+    bond_info = ""
+    donors = c.execute(
+        "SELECT r.from_id, r.evidence, r.value FROM relationships r "
+        "WHERE r.to_id=? AND r.type='Donor_To'", (pol["id"],)
+    ).fetchall()
+    donor_ids = {d["from_id"] for d in donors}
+    # Check if any media company also received funds from or is linked to a donor
+    bond_overlaps = []
+    for comp_id in {i["supplier"] for i in items}:
+        comp_entity = c.execute("SELECT id FROM entities WHERE name=?", (comp_id,)).fetchone()
+        if comp_entity and comp_entity["id"] in donor_ids:
+            bond_overlaps.append(comp_id)
+    if bond_overlaps:
+        bond_info = (
+            f" Additionally, {', '.join(bond_overlaps)} appear(s) as direct or indirect "
+            f"donor(s)/bond-purchaser(s) linked to {pol['name']}, suggesting a dual "
+            f"media-capture and financing pathway."
+        )
+
+    score = _value_boost(total_val, base=42, per_log=19, cap=93)
+    if any(i["during_tenure"] for i in items):
+        score = min(95, score + 8)
+
+    explanation = (
+        f"Media capture risk: {len(items)} media/advertising contract(s) worth {fmt_cr(total_val)} "
+        f"awarded to family-linked firms of {pol['name']}. "
+        f"⚠ NOTE: Media contracts are shown for transparency but are NOT treated as a confirmed "
+        f"corruption source — further investigation is recommended. "
+        f"Workflow: Politician → Family_Link → Director_Of → Media company wins government "
+        f"advertising/media contracts.{bond_info} "
+        f"Pattern: Potential media capture (contract + relationship analysis)."
+    )
+    _add_flag(c, pol["id"], "MEDIA_CAPTURE", score,
+              f"Media contracts to family-linked firms ({fmt_cr(total_val)})",
+              explanation, total_val, items)
+
+
+def rule_electoral_bond_loop(c, pol):
+    """Detect circular fund flows involving electoral bonds / donations,
+    including indirect paths through trusts or intermediaries.
+    Per user directive: compare indirect bonds; workflow must be mentioned and not fake."""
+    web = _family_web(c, pol["id"])
+    network_people = set(web.keys())
+    companies = _companies_of(c, network_people)
+    network = network_people | set(companies.keys())
+
+    # Include trusts directed by family members
+    trusts = {
+        r["to_id"]
+        for r in c.execute(
+            "SELECT to_id FROM relationships WHERE from_id IN (%s) AND type='Director_Of'"
+            % ",".join("?" * len(network_people)), tuple(network_people))
+    }
+    network |= trusts
+
+    # Gather all donor/bond relationships touching the politician or party
+    donor_edges = c.execute(
+        "SELECT from_id, to_id, evidence, value, source FROM relationships "
+        "WHERE type='Donor_To' AND (to_id=? OR to_id IN ("
+        "  SELECT id FROM entities WHERE name=?))",
+        (pol["id"], pol["party"] or ""),
+    ).fetchall()
+
+    if not donor_edges:
+        return
+
+    # Build adjacency from fund_flows + donor edges for cycle detection
+    flows = c.execute("SELECT * FROM fund_flows").fetchall()
+    adj = {}
+    for f in flows:
+        adj.setdefault(f["from_id"], []).append({
+            "to": f["to_id"], "amount": f["amount"],
+            "evidence": f["purpose"] or f["scheme"] or "",
+            "source": f["source"] or "", "type": "fund_flow",
+        })
+    for d in donor_edges:
+        adj.setdefault(d["from_id"], []).append({
+            "to": d["to_id"], "amount": d["value"] or 0,
+            "evidence": d["evidence"] or "", "source": d["source"] or "",
+            "type": "donation/bond",
+        })
+    # Also add contract edges (company → govt body)
+    for comp_id in companies:
+        contracts = c.execute(
+            "SELECT buyer_id, value, source FROM contracts WHERE supplier_id=?",
+            (comp_id,)
+        ).fetchall()
+        for ct in contracts:
+            adj.setdefault(comp_id, []).append({
+                "to": ct["buyer_id"], "amount": ct["value"],
+                "evidence": "contract award", "source": ct["source"] or "",
+                "type": "contract",
+            })
+
+    # Bounded DFS for cycles up to length 5 inside the network
+    found_loops = []
+    for start in network:
+        stack = [(start, [start], [])]
+        while stack:
+            node, path, edges = stack.pop()
+            for edge in adj.get(node, []):
+                nxt = edge["to"]
+                if nxt == start and len(path) >= 3:
+                    # Require at least one donation/bond edge in the cycle
+                    if any(e["type"] == "donation/bond" for e in edges + [edge]):
+                        total = min(e["amount"] for e in edges + [edge] if e["amount"] > 0) if any(e["amount"] > 0 for e in edges + [edge]) else 0
+                        found_loops.append((path + [start], edges + [edge], total))
+                        break
+                if nxt in network and nxt not in path and len(path) < 5:
+                    stack.append((nxt, path + [nxt], edges + [edge]))
+            if found_loops:
+                break
+        if found_loops:
+            break
+
+    if not found_loops:
+        return
+
+    path, edges, total = found_loops[0]
+    names = " → ".join(_name(c, p) for p in path)
+    has_direct_bond = any("bond" in (e.get("evidence") or "").lower() or "electoral" in (e.get("evidence") or "").lower() for e in edges)
+    bond_type = "direct electoral bond" if has_direct_bond else "indirect donation/financing"
+
+    score = _value_boost(total, base=50, per_log=22, cap=98)
+    if has_direct_bond:
+        score = min(99, score + 10)
+
+    explanation = (
+        f"Electoral bond loop detected ({bond_type}): {names}. "
+        f"Funds cycle through {len(path) - 1} entities in the politician's network. "
+        f"Workflow: Donor/bond-purchaser sends funds → funds pass through intermediary "
+        f"entities (companies/trusts) → benefits return to politician's network via "
+        f"contracts or further donations. Both direct and indirect bond paths were analyzed. "
+        f"Pattern: Circular electoral-bond financing (fund flow + relationship analysis)."
+    )
+    _add_flag(c, pol["id"], "ELECTORAL_BOND_LOOP", score,
+              f"Electoral bond loop through network ({fmt_cr(total)})",
+              explanation, total,
+              [{"path": [_name(c, p) for p in path],
+                "edges": [{k: v for k, v in e.items()} for e in edges]}])
+
+
+def rule_family_recruitment(c, pol):
+    """Flag any family member who holds a government position / tenure.
+    Per user directive: consider ALL government hiring, not just overseen depts."""
+    web = _family_web(c, pol["id"])
+    family_only = {k: v for k, v in web.items() if k != pol["id"]}
+    if not family_only:
+        return
+
+    items = []
+    for fam_id, how in family_only.items():
+        fam_name = _name(c, fam_id)
+        # Check if this family member has any government tenures
+        tenures = c.execute(
+            "SELECT * FROM tenures WHERE entity_id=?", (fam_id,)
+        ).fetchall()
+        for t in tenures:
+            # Check overlap with politician's own tenure
+            pol_overlap = _is_during_tenure(c, pol["id"], t["start_date"])
+            items.append({
+                "family_member": fam_name,
+                "relationship": how,
+                "office": t["office"],
+                "start_date": t["start_date"],
+                "end_date": t["end_date"],
+                "source": t["source"],
+                "overlaps_pol_tenure": pol_overlap,
+            })
+
+        # Also check if family member is linked to any GovtBody via relationships
+        govt_links = c.execute(
+            "SELECT r.to_id, r.type, r.evidence, r.source, e.name, e.type as entity_type "
+            "FROM relationships r JOIN entities e ON r.to_id = e.id "
+            "WHERE r.from_id=? AND e.type='GovtBody'",
+            (fam_id,)
+        ).fetchall()
+        for gl in govt_links:
+            items.append({
+                "family_member": fam_name,
+                "relationship": how,
+                "office": f"{gl['name']} ({gl['type']})",
+                "start_date": gl["start_date"] if "start_date" in gl.keys() else "",
+                "end_date": "",
+                "source": gl["source"],
+                "overlaps_pol_tenure": False,
+                "link_type": gl["type"],
+            })
+
+    if not items:
+        return
+
+    overlap_count = sum(1 for i in items if i.get("overlaps_pol_tenure"))
+    score = min(90, 38 + 16 * len(items))
+    if overlap_count:
+        score = min(93, score + 10)
+
+    members = ", ".join(sorted({i["family_member"] for i in items}))
+    offices = "; ".join(sorted({i["office"] for i in items}))
+    explanation = (
+        f"Family recruitment pattern: {len(items)} government position(s) held by "
+        f"family members of {pol['name']}: {members}. "
+        f"Offices/bodies involved: {offices}. "
+        + (f"{overlap_count} position(s) overlap with the politician's active tenure. " if overlap_count else "")
+        + f"Workflow: Politician → Family_Link → Family member holds government office/position. "
+        f"Pattern: Potential nepotism — family members in government roles."
+    )
+    _add_flag(c, pol["id"], "FAMILY_RECRUITMENT", score,
+              f"Family members in {len(items)} govt position(s)",
+              explanation, 0, items)
+
+
+def rule_benami_property(c, pol):
+    """Detect assets/companies owned via benami (proxy) arrangements —
+    companies where a family member is the beneficial owner but the company
+    is registered under another entity, or where shell-like patterns emerge."""
+    web = _family_web(c, pol["id"])
+    family_only = {k: v for k, v in web.items() if k != pol["id"]}
+    if not family_only:
+        return
+
+    items = []
+    total_val = 0
+
+    for fam_id, how in family_only.items():
+        fam_name = _name(c, fam_id)
+        # Look for companies where this family member is beneficial owner
+        beneficial = c.execute(
+            "SELECT r.to_id, r.evidence, r.source FROM relationships r "
+            "WHERE r.from_id=? AND r.type='Beneficial_Owner_Of'",
+            (fam_id,)
+        ).fetchall()
+        for b in beneficial:
+            comp_id = b["to_id"]
+            comp = c.execute("SELECT * FROM entities WHERE id=?", (comp_id,)).fetchone()
+            if not comp:
+                continue
+
+            # Check if this company has a different registered director (not in family)
+            directors = c.execute(
+                "SELECT from_id FROM relationships WHERE to_id=? AND type='Director_Of'",
+                (comp_id,)
+            ).fetchall()
+            outside_directors = [d["from_id"] for d in directors if d["from_id"] not in web]
+
+            # Check for shared addresses with other family companies
+            shared = c.execute(
+                "SELECT * FROM relationships WHERE type='Shared_Address' AND (from_id=? OR to_id=?)",
+                (comp_id, comp_id)
+            ).fetchone()
+
+            # Get total contracts won by this benami entity
+            contracts = c.execute(
+                "SELECT SUM(value) as total, COUNT(*) as cnt FROM contracts WHERE supplier_id=?",
+                (comp_id,)
+            ).fetchone()
+            comp_val = contracts["total"] or 0
+            comp_cnt = contracts["cnt"] or 0
+            total_val += comp_val
+
+            items.append({
+                "company": comp["name"],
+                "cin": comp["cin"] or "",
+                "beneficial_owner": fam_name,
+                "relationship_to_pol": how,
+                "has_outside_directors": len(outside_directors) > 0,
+                "outside_director_count": len(outside_directors),
+                "shared_address": bool(shared),
+                "shared_address_evidence": shared["evidence"] if shared else "",
+                "contracts_won": comp_cnt,
+                "contract_value": comp_val,
+                "incorporation_date": comp["incorporation_date"] or "",
+                "evidence": b["evidence"],
+                "source": b["source"],
+            })
+
+    if not items:
+        return
+
+    score = min(95, 50 + 12 * len(items))
+    if any(i["shared_address"] for i in items):
+        score = min(97, score + 8)
+    if total_val > 0:
+        score = min(98, score + _value_boost(total_val, base=0, per_log=10, cap=15))
+
+    comp_names = ", ".join(sorted({i["company"] for i in items}))
+    explanation = (
+        f"Benami property pattern: {len(items)} company/ies ({comp_names}) where family members "
+        f"of {pol['name']} are beneficial owners but the entities may be registered under "
+        f"third-party directors. "
+        + (f"Total contracts won by these entities: {fmt_cr(total_val)}. " if total_val > 0 else "")
+        + ("Shared registered addresses detected between benami entities and other family firms. " if any(i["shared_address"] for i in items) else "")
+        + f"Workflow: Politician → Family_Link → Beneficial_Owner_Of → Company with outside "
+        f"directors → Company wins government contracts. "
+        f"Pattern: Potential benami ownership (MCA beneficial ownership + contract analysis)."
+    )
+    _add_flag(c, pol["id"], "BENAMI_PROPERTY", score,
+              f"Benami ownership in {len(items)} company/ies ({comp_names})",
+              explanation, total_val, items)
+
+
+# ---------------------------------------------------------------------------
+# Rule registry — every callable in this list is invoked by rescore()
+# ---------------------------------------------------------------------------
+RULES = [
+    rule_family_contracts,
+    rule_asset_growth,
+    rule_repeated_awards,
+    rule_ghost_entity,
+    rule_fund_loop,
+    rule_loan_quid_pro_quo,
+    rule_policy_conflict,
+    rule_scam_detection,
+    rule_media_capture,
+    rule_electoral_bond_loop,
+    rule_family_recruitment,
+    rule_benami_property,
+]
 
 
 def rescore():
