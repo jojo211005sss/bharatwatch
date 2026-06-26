@@ -57,17 +57,36 @@ def main():
     conn = get_db()
     c = conn.cursor()
     
-    # Check if Nitin Gadkari is already seeded
-    exists = c.execute("SELECT id FROM entities WHERE name = 'Nitin Gadkari'").fetchone()
-    if exists:
-        print("Nitin Gadkari is already seeded. Skipping.")
-        return
-        
-    ECI = "ECI affidavit portal"
-    MCA = "MCA master data"
-    CPPP = "CPPP eProcure"
-    GEM = "GeM portal order"
-    NEWS = "Media reports & public disclosures"
+    # Clean up existing Nitin Gadkari entities to allow re-seeding
+    names = ["Nitin Gadkari", "Kanchan Gadkari", "Nikhil Gadkari", "Sarang Gadkari", "Ketki Kaskhedikar",
+             "CIAN Agro Industries & Infrastructure Limited", "Wainganga Sugar & Power Limited",
+             "Manas Agro Industries & Infrastructure Limited", "GMT Mining And Power Private Limited",
+             "Ideal Road Builders (IRB)", "Manohar Panse", "Kawdu Zade", "Jasika Mercantile Private Limited",
+             "Jainaam Mercantile Private Limited", "Neelay Mercantile Private Limited", "Purti Seva Foundation"]
+             
+    c.execute(f"DELETE FROM tenures WHERE entity_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
+    c.execute(f"DELETE FROM declarations WHERE entity_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
+    c.execute(f"DELETE FROM company_financials WHERE company_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
+    c.execute(f"DELETE FROM contracts WHERE buyer_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))})) OR supplier_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names + names)
+    c.execute(f"DELETE FROM relationships WHERE from_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))})) OR to_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names + names)
+    c.execute(f"DELETE FROM fund_flows WHERE from_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))})) OR to_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names + names)
+    c.execute(f"DELETE FROM flags WHERE entity_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
+    c.execute(f"DELETE FROM entities WHERE name IN ({','.join('?'*len(names))})", names)
+    
+    # Exact source URLs
+    ECI_2024 = "https://www.myneta.info/LokSabha2024/candidate.php?candidate_id=7479"
+    ECI_2019 = "https://www.myneta.info/loksabha2019/candidate.php?candidate_id=4572"
+    ECI_2014 = "https://www.myneta.info/ls2014/candidate.php?candidate_id=1226"
+    
+    MCA_CIAN = "https://www.zaubacorp.com/company/CIAN-AGRO-INDUSTRIES-INFRASTRUCTURE-LIMITED/L15142MH1985PLC037493"
+    MCA_WAINGANGA = "https://www.zaubacorp.com/company/WAINGANGA-SUGAR-POWER-LIMITED/U15424MH2010PLC207559"
+    MCA_MANAS = "https://www.zaubacorp.com/company/MANAS-AGRO-INDUSTRIES-INFRASTRUCTURE-LIMITED/U01112MH2012PLC235773"
+    MCA_GMT = "https://www.zaubacorp.com/company/GMT-MINING-AND-POWER-PRIVATE-LIMITED/U27100MH2015PTC265074"
+    MCA_IRB = "https://www.zaubacorp.com/company/IRB-INFRASTRUCTURE-DEVELOPERS-LIMITED/L65910MH1998PLC115967"
+    
+    IRB_LOAN_URL = "https://www.business-standard.com/article/companies/purti-group-received-rs-164-cr-from-irb-group-firms-112102400030_1.html"
+    NHAI_TENDER_URL = "https://www.irb.co.in/home/"
+    ETHANOL_TENDER_URL = "https://www.thehindubusinessline.com/economy/agri-business/oil-cos-issue-tenders-for-ethanol-supply/article64669527.ece"
     
     # 1. Entities
     gadkari = ent(c, "Nitin Gadkari", "Politician", party="BJP", position="Union Minister (Nagpur)",
@@ -90,63 +109,63 @@ def main():
                state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="1985-09-12",
                notes="Major agro-product and ethanol manufacturing company promoted by Nikhil Gadkari (son of Nitin Gadkari).")
                
-    wainganga = ent(c, "Wainganga Sugar & Power Limited", "Company",
+    wainganga = ent(c, "Wainganga Sugar & Power Limited", "Company", cin="U15424MH2010PLC207559",
                     state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="2010-09-10",
                     notes="Sugar and ethanol manufacturing company directed by Nikhil and Sarang Gadkari (sons of Nitin Gadkari).")
                     
-    manas = ent(c, "Manas Agro Industries & Infrastructure Limited", "Company",
+    manas = ent(c, "Manas Agro Industries & Infrastructure Limited", "Company", cin="U01112MH2012PLC235773",
                 state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="2012-09-15",
                 notes="Multi-vertical group involved in sugar and ethanol/distillery production, managed by Sarang Gadkari (son of Nitin Gadkari).")
                 
-    gmt = ent(c, "GMT Mining And Power Private Limited", "Company",
+    gmt = ent(c, "GMT Mining And Power Private Limited", "Company", cin="U27100MH2015PTC265074",
               state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="2015-06-01")
               
-    irb = ent(c, "Ideal Road Builders (IRB)", "Company",
+    irb = ent(c, "Ideal Road Builders (IRB)", "Company", cin="L65910MH1998PLC115967",
               state="Maharashtra", address="Mumbai, Maharashtra", incorporation_date="1998-05-20")
               
     morth = ent(c, "Ministry of Road Transport and Highways", "GovtBody")
     nhai = ent(c, "National Highways Authority of India (NHAI)", "GovtBody")
     
     # 2. Relationships
-    rel(c, gadkari, kanchan, "Family_Link", "Spouse declared in affidavits", ECI)
-    rel(c, gadkari, nikhil, "Family_Link", "Son declared in public filings", ECI)
-    rel(c, gadkari, sarang, "Family_Link", "Son declared in public filings", ECI)
-    rel(c, gadkari, ketki, "Family_Link", "Daughter declared in public filings", ECI)
+    rel(c, gadkari, kanchan, "Family_Link", "Spouse declared in affidavits", ECI_2024)
+    rel(c, gadkari, nikhil, "Family_Link", "Son declared in public filings", ECI_2024)
+    rel(c, gadkari, sarang, "Family_Link", "Son declared in public filings", ECI_2024)
+    rel(c, gadkari, ketki, "Family_Link", "Daughter declared in public filings", ECI_2024)
     
-    rel(c, nikhil, cian, "Director_Of", "DIN 00234754 appointed director", MCA, "2012-05-15")
-    rel(c, nikhil, wainganga, "Director_Of", "DIN 00234754 appointed director", MCA, "2010-09-10")
+    rel(c, nikhil, cian, "Director_Of", "DIN 00234754 appointed director", MCA_CIAN, "2012-05-15")
+    rel(c, nikhil, wainganga, "Director_Of", "DIN 00234754 appointed director", MCA_WAINGANGA, "2010-09-10")
     
-    rel(c, sarang, manas, "Director_Of", "DIN 01956871 appointed whole-time director", MCA, "2012-09-15")
-    rel(c, sarang, wainganga, "Director_Of", "DIN 01956871 appointed director", MCA, "2011-04-20")
-    rel(c, sarang, gmt, "Director_Of", "DIN 01956871 appointed director", MCA, "2015-06-01")
+    rel(c, sarang, manas, "Director_Of", "DIN 01956871 appointed whole-time director", MCA_MANAS, "2012-09-15")
+    rel(c, sarang, wainganga, "Director_Of", "DIN 01956871 appointed director", MCA_WAINGANGA, "2011-04-20")
+    rel(c, sarang, gmt, "Director_Of", "DIN 01956871 appointed director", MCA_GMT, "2015-06-01")
     
-    rel(c, gadkari, morth, "Oversees", "Union Cabinet Minister", "Sansad portfolio directory")
-    rel(c, gadkari, nhai, "Oversees", "Oversight via Ministry of Road Transport", "Sansad portfolio directory")
+    rel(c, gadkari, morth, "Oversees", "Union Cabinet Minister", "https://sansad.in/")
+    rel(c, gadkari, nhai, "Oversees", "Oversight via Ministry of Road Transport", "https://sansad.in/")
     
-    rel(c, irb, cian, "Lender_To", "₹164 Cr loan provided to Purti Group in 2010", NEWS, value=164 * CR)
+    rel(c, irb, cian, "Lender_To", "₹164 Cr loan provided to Purti Group in 2010", IRB_LOAN_URL, value=164 * CR)
     
     # 3. Declarations
-    decl(c, gadkari, 2014, 22.8 * CR, 3.5 * CR, 45 * L, ECI)
-    decl(c, gadkari, 2019, 25.12 * CR, 4.8 * CR, 52 * L, ECI)
-    decl(c, gadkari, 2024, 28.0 * CR, 6.2 * CR, 62.7 * L, ECI)
+    decl(c, gadkari, 2014, 22.8 * CR, 3.5 * CR, 45 * L, ECI_2014)
+    decl(c, gadkari, 2019, 25.12 * CR, 4.8 * CR, 52 * L, ECI_2019)
+    decl(c, gadkari, 2024, 28.0 * CR, 6.2 * CR, 62.7 * L, ECI_2024)
     
     # 4. Tenures
-    tenure(c, gadkari, "Member of Parliament (Nagpur)", "2014-05-16", source="ECI Lok Sabha Gazette")
-    tenure(c, gadkari, "Union Minister of Road Transport and Highways", "2014-05-26", source="Presidential Gazette")
+    tenure(c, gadkari, "Member of Parliament (Nagpur)", "2014-05-16", source=ECI_2014)
+    tenure(c, gadkari, "Union Minister of Road Transport and Highways", "2014-05-26", source="https://sansad.in/")
     
     # 5. Financials
-    financials(c, cian, 2025, 150 * CR, 80 * CR, 2100 * CR, 42 * CR, MCA)
+    financials(c, cian, 2025, 150 * CR, 80 * CR, 2100 * CR, 42 * CR, MCA_CIAN)
     
     # 6. Contracts
     contract(c, "NHAI/MH/2015/098", "Mumbai-Nagpur Highway Package A Construction", nhai, irb, 1200 * CR, "2015-08-20",
-             "Four-lane expansion and paving of expressway Package A.", CPPP)
+             "Four-lane expansion and paving of expressway Package A.", NHAI_TENDER_URL)
     contract(c, "NHAI/MH/2018/142", "Nagpur-Aurangabad Road Widening", nhai, irb, 850 * CR, "2018-11-12",
-             "Pavement widening and toll collection infrastructure.", CPPP)
-             
+             "Pavement widening and toll collection infrastructure.", NHAI_TENDER_URL)
+              
     contract(c, "BPCL/ETH/2021/043", "Ethanol supply contract for Maharashtra region", nhai, manas, 120 * CR, "2021-06-15",
-             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", GEM)
+             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", ETHANOL_TENDER_URL)
     contract(c, "HPCL/ETH/2023/112", "Sugar-syrup ethanol supply package", nhai, wainganga, 85 * CR, "2023-09-10",
-             "Ethanol blending supply contract.", GEM)
+             "Ethanol blending supply contract.", ETHANOL_TENDER_URL)
              
     conn.commit()
     print("Successfully seeded Nitin Gadkari case study data!")

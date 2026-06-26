@@ -96,14 +96,14 @@ async function load() {
 
     <div class="tabpane active" id="pane-timeline">
       <div class="timeline">${p.timeline.map(t => `
-        <div class="ev"><div class="d">${esc(t.date)} · ${esc(t.kind)}</div><div>${esc(t.text)}</div></div>`).join("") || "No events."}
+        <div class="ev"><div class="d">${esc(t.date)} · ${esc(t.kind)}${t.source ? ` · <span style="font-size:11px;color:var(--muted)">Source: ${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source)}</span>` : ""}</div><div>${esc(t.text)}</div></div>`).join("") || "No events."}
       </div>
     </div>
     ${e.type === 'Politician' ? `
     <div class="tabpane" id="pane-tenures">
       <table class="data"><tr><th>Office</th><th>Start Date</th><th>End Date</th><th>Source</th></tr>
       ${p.tenures.map(t => `<tr><td>${esc(t.office)}</td><td>${esc(t.start_date)}</td>
-        <td>${esc(t.end_date || "Present")}</td><td>${esc(t.source)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
+        <td>${esc(t.end_date || "Present")}</td><td>${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
       </table>
     </div>` : ''}
     <div class="tabpane" id="pane-relationships">
@@ -113,7 +113,7 @@ async function load() {
         <td><a href="/entity?id=${r.to_id}">${esc(r.to_name)}</a></td>
         <td><span class="badge" style="background:var(--chip);color:var(--accent)">${esc(r.type)}</span></td>
         <td>${esc(r.evidence || "")}</td>
-        <td>${esc(r.source || "")}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+        <td>${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(r.source)}</a>` : esc(r.source || "")}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>
     ${e.type === 'Politician' ? `
@@ -158,27 +158,28 @@ async function load() {
       <table class="data"><tr><th>Tender</th><th>Title</th><th>Buyer</th><th>Supplier</th><th>Value</th><th>Date</th><th>Source</th></tr>
       ${p.contracts.map(k => `<tr><td>${esc(k.tender_id)}</td><td>${esc(k.title)}</td>
         <td>${esc(k.buyer_name)}</td><td>${esc(k.supplier_name)}</td><td>${fmtCr(k.value)}</td>
-        <td>${esc(k.award_date)}</td><td>${esc(k.source)}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
+        <td>${esc(k.award_date)}</td><td>${k.source_url ? `<a href="${esc(k.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(k.source)}</a>` : esc(k.source)}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
     <div class="tabpane" id="pane-flows">
-      <table class="data"><tr><th>Scheme</th><th>From</th><th>To</th><th>Amount</th><th>Date</th><th>Purpose</th></tr>
+      <table class="data"><tr><th>Scheme</th><th>From</th><th>To</th><th>Amount</th><th>Date</th><th>Purpose</th><th>Source</th></tr>
       ${p.fund_flows.map(f => `<tr><td>${esc(f.scheme)}</td><td>${esc(f.from_name)}</td>
-        <td>${esc(f.to_name)}</td><td>${fmtCr(f.amount)}</td><td>${esc(f.date)}</td><td>${esc(f.purpose)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
+        <td>${esc(f.to_name)}</td><td>${fmtCr(f.amount)}</td><td>${esc(f.date)}</td><td>${esc(f.purpose)}</td>
+        <td>${f.source_url ? `<a href="${esc(f.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(f.source)}</a>` : esc(f.source || "")}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
     ${e.type === 'Politician' ? `
     <div class="tabpane" id="pane-assets">
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Annual income</th><th>Source</th></tr>
       ${p.declarations.map(d => `<tr><td>${d.year}</td><td>${fmtCr(d.assets)}</td>
-        <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>${esc(d.source)}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+        <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>${d.source_url ? `<a href="${esc(d.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(d.source)}</a>` : esc(d.source)}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>` : ''}
     ${e.type === 'Company' ? `
     <div class="tabpane" id="pane-financials">
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Revenue</th><th>Net Profit</th><th>Source</th></tr>
       ${p.financials.map(fn => `<tr><td>${fn.year}</td><td>${fmtCr(fn.assets)}</td>
-        <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>${esc(fn.source)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
+        <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>${fn.source_url ? `<a href="${esc(fn.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(fn.source)}</a>` : esc(fn.source)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
       </table>
     </div>` : ''}
 

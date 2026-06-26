@@ -449,7 +449,7 @@ def rule_policy_conflict(c, pol):
             
     # Check if the politician's profile indicates involvement in transport or ethanol advocacy
     is_advocate = False
-    policy_keywords = ["ethanol", "blending", "road transport", "highways", "bio-fuel", "clean energy", "transport"]
+    policy_keywords = ["ethanol", "blending", "road transport", "highways", "bio-fuel", "clean energy", "transport", "excise", "liquor", "beverage", "alcohol", "wine"]
     for kw in policy_keywords:
         if kw in pol_notes or kw in pol_position:
             is_advocate = True
@@ -459,7 +459,7 @@ def rule_policy_conflict(c, pol):
     overseen = _oversees(c, pol["id"])
     for ob in overseen:
         ob_name = _name(c, ob).lower()
-        if any(kw in ob_name for kw in ["road transport", "highways", "nhai"]):
+        if any(kw in ob_name for kw in ["road transport", "highways", "nhai", "excise", "liquor"]):
             is_advocate = True
             break
             
@@ -480,7 +480,7 @@ def rule_policy_conflict(c, pol):
         comp_notes = (comp["notes"] or "").lower() if comp else ""
         comp_name_lower = (comp["name"] or "").lower() if comp else ""
         
-        # Look for contracts related to ethanol, bio-fuel, or highways
+        # Look for contracts related to ethanol, bio-fuel, highways, or excise/liquor
         contracts = c.execute(
             "SELECT * FROM contracts WHERE supplier_id = ?", (fcomp_id,)
         ).fetchall()
@@ -488,7 +488,7 @@ def rule_policy_conflict(c, pol):
         for r in contracts:
             title_desc = (r["title"] or "").lower() + " " + (r["description"] or "").lower()
             match_kw = None
-            for kw in ["ethanol", "bio-fuel", "blending", "distillery", "sugar"]:
+            for kw in ["ethanol", "bio-fuel", "blending", "distillery", "sugar", "excise", "liquor", "beverage", "retail zone", "wholesale", "l-1", "l-7"]:
                 if kw in title_desc or kw in comp_notes or kw in comp_name_lower or kw in fm_notes or kw in fm_pos:
                     match_kw = kw
                     break
@@ -532,15 +532,27 @@ def rule_policy_conflict(c, pol):
     member_str = "; ".join(member_details)
     
     c_names = ", ".join(sorted(company_names))
-    explanation = (
-        f"Policy Conflict of Interest: {pol['name']} is a major national advocate pushing for ethanol blending and bio-fuels. "
-        f"His first-degree family member(s) ({member_str}) own and manage firms in the ethanol/sugar sector. "
-        f"These connected companies won {len(items)} contract(s) worth {fmt_cr(total_val)} related to ethanol supply. "
-        f"Pattern: Politician promotes ethanol blending policy -> Family member owns/directs ethanol firm -> Company wins public ethanol supply contracts."
-    )
     
+    is_excise = any(item["conflict_sector"].lower() in ["excise", "liquor", "beverage", "retail zone", "wholesale", "l-1", "l-7"] for item in items)
+    if is_excise:
+        explanation = (
+            f"Policy Conflict of Interest: {pol['name']} is a major policy-maker for excise and liquor licensing. "
+            f"His first-degree family member(s) ({member_str}) own and manage firms in the liquor/beverage sector. "
+            f"These connected companies won {len(items)} contract(s) worth {fmt_cr(total_val)} related to liquor licensing/distribution. "
+            f"Pattern: Politician promotes excise policy -> Family member owns/directs liquor firm -> Company wins public retail/wholesale contracts."
+        )
+        title = f"Policy Conflict: Liquor contracts won by family firms ({fmt_cr(total_val)})"
+    else:
+        explanation = (
+            f"Policy Conflict of Interest: {pol['name']} is a major national advocate pushing for ethanol blending and bio-fuels. "
+            f"His first-degree family member(s) ({member_str}) own and manage firms in the ethanol/sugar sector. "
+            f"These connected companies won {len(items)} contract(s) worth {fmt_cr(total_val)} related to ethanol supply. "
+            f"Pattern: Politician promotes ethanol blending policy -> Family member owns/directs ethanol firm -> Company wins public ethanol supply contracts."
+        )
+        title = f"Policy Conflict: Ethanol supply contracts won by family firms ({fmt_cr(total_val)})"
+        
     _add_flag(c, pol["id"], "POLICY_CONFLICT", score,
-              f"Policy Conflict: Ethanol supply contracts won by family firms ({fmt_cr(total_val)})",
+              title,
               explanation, total_val, items)
 
 

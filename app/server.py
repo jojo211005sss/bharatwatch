@@ -117,6 +117,33 @@ def find_source_directory_for_entity(entity_name):
     return "sample_data"
 
 
+def get_source_url(source):
+    if not source:
+        return None
+    if source.startswith("http://") or source.startswith("https://"):
+        return source
+    s_lower = source.lower()
+    if "myneta" in s_lower:
+        return "https://www.myneta.info/"
+    elif "affidavit" in s_lower or "eci" in s_lower or "election" in s_lower:
+        return "https://affidavit.eci.gov.in/"
+    elif "mca" in s_lower or "filing" in s_lower or "company" in s_lower or "director" in s_lower:
+        return "https://www.mca.gov.in/"
+    elif "cppp" in s_lower or "tender" in s_lower or "procure" in s_lower:
+        return "https://eprocure.gov.in/cppp/"
+    elif "gem" in s_lower:
+        return "https://gem.gov.in/"
+    elif "pfms" in s_lower:
+        return "https://pfms.nic.in/"
+    elif "mplads" in s_lower:
+        return "https://www.mplads.gov.in/"
+    elif "sppp" in s_lower or "rajasthan" in s_lower or "state gazette" in s_lower:
+        return "https://sppp.rajasthan.gov.in/"
+    elif "sansad" in s_lower:
+        return "https://sansad.in/"
+    return None
+
+
 def entity_profile(eid):
     c = get_db().cursor()
     e = c.execute("SELECT * FROM entities WHERE id=?", (eid,)).fetchone()
@@ -125,14 +152,21 @@ def entity_profile(eid):
     e = dict(e)
     decls = rows_to_dicts(c.execute(
         "SELECT * FROM declarations WHERE entity_id=? ORDER BY year", (eid,)))
+    for d in decls:
+        d["source_url"] = get_source_url(d.get("source"))
+        
     flags = rows_to_dicts(c.execute(
         "SELECT * FROM flags WHERE entity_id=? ORDER BY risk_score DESC", (eid,)))
     for f in flags:
         f["evidence"] = json.loads(f["evidence"] or "[]")
+        
     rels = rows_to_dicts(c.execute("""
         SELECT r.*, a.name AS from_name, b.name AS to_name
         FROM relationships r JOIN entities a ON a.id=r.from_id JOIN entities b ON b.id=r.to_id
         WHERE r.from_id=? OR r.to_id=?""", (eid, eid)))
+    for r in rels:
+        r["source_url"] = get_source_url(r.get("source"))
+        
     # Find all first-degree personal connections of eid (Family, Friends, Associates, etc.)
     personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self", "type": e["type"], "din": e.get("din"), "pan": e.get("pan"), "position": e.get("position"), "notes": e.get("notes")}}
     personal_rel_types = {'family_link', 'friend_link', 'associate', 'spouse', 'son', 'daughter', 'child', 'parent', 'sibling', 'brother', 'sister', 'wife', 'husband', 'relative'}
@@ -249,42 +283,60 @@ def entity_profile(eid):
         JOIN entities b ON b.id=k.buyer_id JOIN entities s ON s.id=k.supplier_id
         WHERE k.supplier_id IN ({qc}) OR k.buyer_id=? ORDER BY k.award_date""",
         tuple(comp_ids) + (eid,)))
+    for k in contracts:
+        k["source_url"] = get_source_url(k.get("source"))
+        
     net_ids = tuple(personal_connections.keys()) + tuple(comp_ids)
     qn = ",".join("?" * len(net_ids))
     flows = rows_to_dicts(c.execute(f"""
         SELECT f.*, a.name AS from_name, b.name AS to_name FROM fund_flows f
         JOIN entities a ON a.id=f.from_id JOIN entities b ON b.id=f.to_id
         WHERE f.from_id IN ({qn}) OR f.to_id IN ({qn}) ORDER BY f.date""", net_ids + net_ids))
+    for f in flows:
+        f["source_url"] = get_source_url(f.get("source"))
+        
     tenures = rows_to_dicts(c.execute(
         "SELECT * FROM tenures WHERE entity_id=? ORDER BY start_date", (eid,)))
+    for t in tenures:
+        t["source_url"] = get_source_url(t.get("source"))
+        
     financials = rows_to_dicts(c.execute(
         "SELECT * FROM company_financials WHERE company_id=? ORDER BY year", (eid,)))
+    for fn in financials:
+        fn["source_url"] = get_source_url(fn.get("source"))
     
     timeline = []
     for d in decls:
         timeline.append({"date": f"{d['year']}-01-01", "kind": "Affidavit",
-                         "text": f"Declared assets ₹{d['assets'] / 1e7:.1f} Cr (income ₹{d['income'] / 1e5:.0f} L/yr)"})
+                         "text": f"Declared assets ₹{d['assets'] / 1e7:.1f} Cr (income ₹{d['income'] / 1e5:.0f} L/yr)",
+                         "source": d.get("source"), "source_url": d.get("source_url")})
     for co in companies:
         if co.get("incorporation_date"):
             timeline.append({"date": co["incorporation_date"], "kind": "Company",
-                             "text": f"{co['name']} incorporated (director: {co['via']})"})
+                             "text": f"{co['name']} incorporated (director: {co['via']})",
+                             "source": "MCA filings", "source_url": "https://www.mca.gov.in/"})
     for k in contracts:
         if k.get("award_date"):
             timeline.append({"date": k["award_date"], "kind": "Contract",
-                             "text": f"{k['supplier_name']} awarded {k['tender_id']} (₹{k['value'] / 1e7:.1f} Cr) by {k['buyer_name']}"})
+                             "text": f"{k['supplier_name']} awarded {k['tender_id']} (₹{k['value'] / 1e7:.1f} Cr) by {k['buyer_name']}",
+                             "source": k.get("source"), "source_url": k.get("source_url")})
     for f in flows:
         if f.get("date"):
             timeline.append({"date": f["date"], "kind": "Fund flow",
-                             "text": f"₹{f['amount'] / 1e7:.1f} Cr: {f['from_name']} → {f['to_name']} ({f['scheme']})"})
+                             "text": f"₹{f['amount'] / 1e7:.1f} Cr: {f['from_name']} → {f['to_name']} ({f['scheme']})",
+                             "source": f.get("source"), "source_url": f.get("source_url")})
     for t in tenures:
         timeline.append({"date": t["start_date"], "kind": "Tenure",
-                         "text": f"Assumed office: {t['office']}"})
+                         "text": f"Assumed office: {t['office']}",
+                         "source": t.get("source"), "source_url": t.get("source_url")})
         if t.get("end_date"):
             timeline.append({"date": t["end_date"], "kind": "Tenure",
-                             "text": f"Left office: {t['office']}"})
+                             "text": f"Left office: {t['office']}",
+                             "source": t.get("source"), "source_url": t.get("source_url")})
     for fn in financials:
         timeline.append({"date": f"{fn['year']}-03-31", "kind": "Financials",
-                         "text": f"Balance sheet FY{fn['year']}: Revenue ₹{fn['revenue'] / 1e7:.1f} Cr, Assets ₹{fn['assets'] / 1e7:.1f} Cr"})
+                         "text": f"Balance sheet FY{fn['year']}: Revenue ₹{fn['revenue'] / 1e7:.1f} Cr, Assets ₹{fn['assets'] / 1e7:.1f} Cr",
+                         "source": fn.get("source"), "source_url": fn.get("source_url")})
         
     timeline.sort(key=lambda t: t["date"])
     
