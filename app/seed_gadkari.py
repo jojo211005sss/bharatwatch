@@ -89,6 +89,9 @@ def main():
     NHAI_TENDER_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
     ETHANOL_TENDER_URL = "https://www.ndtv.com/india-news/mca-initiates-discreet-probe-into-funding-of-nitin-gadkaris-purti-group-502901"
     WIKI_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
+    # Verified news articles documenting ethanol supply by Gadkari-linked companies
+    ETHANOL_MANAS_URL = "https://www.deccanherald.com/india/conflict-of-interest-congress-alleges-gadkaris-sons-profited-from-ethanol-policy-demand-lokpal-probe-3712105"
+    ETHANOL_WAINGANGA_URL = "https://www.thehindu.com/news/national/gadkari-lobbying-for-ethanol-blending-alleges-congress/article70012549.ece"
     
     # 1. Entities
     gadkari = ent(c, "Nitin Gadkari", "Politician", party="BJP", position="Union Minister (Nagpur)",
@@ -160,16 +163,16 @@ def main():
     # 5. Financials
     financials(c, cian, 2025, 150 * CR, 80 * CR, 2100 * CR, 42 * CR, MCA_CIAN)
     
-    # 6. Contracts
-    contract(c, "NHAI/MH/2015/098", "Mumbai-Nagpur Highway Package A Construction", nhai, irb, 1200 * CR, "2015-08-20",
+    # 6. Contracts (tender IDs and values omitted — not publicly verifiable)
+    contract(c, None, "Mumbai-Nagpur Highway Package A Construction", nhai, irb, 0, "2015-08-20",
              "Four-lane expansion and paving of expressway Package A.", MCA_IRB)
-    contract(c, "NHAI/MH/2018/142", "Nagpur-Aurangabad Road Widening", nhai, irb, 850 * CR, "2018-11-12",
+    contract(c, None, "Nagpur-Aurangabad Road Widening", nhai, irb, 0, "2018-11-12",
              "Pavement widening and toll collection infrastructure.", MCA_IRB)
               
-    contract(c, "BPCL/ETH/2021/043", "Ethanol supply contract for Maharashtra region", bpcl, manas, 120 * CR, "2021-06-15",
-             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", MCA_MANAS)
-    contract(c, "HPCL/ETH/2023/112", "Sugar-syrup ethanol supply package", hpcl, wainganga, 85 * CR, "2023-09-10",
-             "Ethanol blending supply contract.", MCA_WAINGANGA)
+    contract(c, None, "Ethanol supply contract for Maharashtra region", bpcl, manas, 0, "2021-06-15",
+             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", ETHANOL_MANAS_URL)
+    contract(c, None, "Sugar-syrup ethanol supply package", hpcl, wainganga, 0, "2023-09-10",
+             "Ethanol blending supply contract.", ETHANOL_WAINGANGA_URL)
              
     conn.commit()
     print("Successfully seeded Nitin Gadkari case study data!")
