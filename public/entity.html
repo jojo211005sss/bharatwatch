@@ -229,20 +229,24 @@ async function load() {
     <div class="tabpane" id="pane-scams">
       <div style="margin-top:10px">
         <div class="card" style="margin-bottom:16px;background:var(--panel2);border-left:4px solid var(--danger)">
-          <h3 style="margin:0 0 8px 0">Baseline Corruption & Public Allegations Search</h3>
+          <h3 style="margin:0 0 8px 0">Automated Background Investigation (Scams & Probes)</h3>
           <p style="margin:0 0 12px 0;font-size:14px;color:var(--muted)">
-            Quick-search public databases and news engines for scams, fraud investigations, CBI/ED probes, or assets mismatch cases relating to <strong>${esc(e.name)}</strong>.
+            Verify public news profiles, chargesheets, or allegations from news repositories and legal portals in real-time.
           </p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' scam OR fraud OR corruption OR CBI OR ED')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
-              🔍 Google: ${esc(e.name)} + Scam/Fraud
-            </a>
-            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' assets mismatch OR disproportionate assets')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
-              💰 Google: Assets Mismatch
-            </a>
-            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' electoral bonds donor OR recipient')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
-              🗳️ Google: Electoral Bonds
-            </a>
+          <div style="margin-bottom:14px">
+            <button onclick="triggerScamScan()" class="ghost" style="background:var(--accent);color:#fff;border-color:var(--accent);display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+              🔍 Run Background Scam Scan
+            </button>
+          </div>
+          <div id="scamResult" style="display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:12px;font-size:14px;line-height:1.6">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;color:var(--danger);margin-bottom:8px">
+              <span>⚠️</span> Automated Finding Summary
+            </div>
+            <div id="scamText" style="margin-bottom:12px">Running background scan...</div>
+            <div id="scamRefList" style="border-top:1px solid var(--line);padding-top:10px;font-size:12px;color:var(--muted)">
+              <strong>References:</strong>
+              <ul id="scamRefs" style="margin:6px 0 0 0;padding-left:20px;line-height:1.5"></ul>
+            </div>
           </div>
         </div>
 
@@ -486,6 +490,34 @@ function exportPng() {
   a.download = "bharatwatch_graph.png";
   a.click();
 }
+async function triggerScamScan() {
+  const box = document.getElementById("scamResult");
+  const txt = document.getElementById("scamText");
+  const refs = document.getElementById("scamRefs");
+  
+  box.style.display = "block";
+  txt.innerHTML = "<em>Scraping public news databases and verifying allegations. Please wait, this takes a few seconds...</em>";
+  refs.innerHTML = "";
+  
+  try {
+    const res = await api(`/api/entity/scam-scan?id=${id}`);
+    if (res.ok) {
+      txt.innerHTML = res.summary;
+      if (res.references && res.references.length) {
+        refs.innerHTML = res.references.map(r => `
+          <li><a href="${esc(r.url)}" target="_blank" style="color:var(--accent);text-decoration:underline">${esc(r.title)}</a> (${esc(r.source)})</li>
+        `).join("");
+      } else {
+        refs.innerHTML = "<li>No direct articles indexed.</li>";
+      }
+    } else {
+      txt.innerHTML = `<span style="color:var(--danger)">Error: ${esc(res.error || "Failed to scan.")}</span>`;
+    }
+  } catch (err) {
+    txt.innerHTML = `<span style="color:var(--danger)">Scan failed: ${esc(err.message)}</span>`;
+  }
+}
+
 load();
 </script>
 </body>

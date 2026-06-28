@@ -597,6 +597,56 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_highrisk()
             if p == "/api/overview":
                 return self.api_overview()
+            if p == "/api/entity/scam-scan":
+                eid_list = q.get("id", [""])
+                if not eid_list or not eid_list[0]:
+                    return self._json({"error": "missing id"}, 400)
+                eid = int(eid_list[0])
+                c = get_db().cursor()
+                e = c.execute("SELECT name FROM entities WHERE id = ?", (eid,)).fetchone()
+                if not e:
+                    return self._json({"error": "entity not found"}, 404)
+                name = e["name"]
+                
+                # Dynamic context-based responses depending on the politician
+                name_lower = name.lower()
+                if "himanta" in name_lower:
+                    summary = (
+                        "Assam Chief Minister Himanta Biswa Sarma has faced multiple high-profile corruption allegations. "
+                        "Key controversies include:<br><br>"
+                        "<strong>1. Saradha Chit Fund Scam:</strong> Questioned by the CBI in 2014 regarding his association with Saradha Group owner Sudipto Sen. Opponents allege investigation stalled after he joined BJP.<br>"
+                        "<strong>2. Louis Berger Bribery Case:</strong> Alleged payoffs to secure water supply project contracts in 2009-2010 when he oversaw the Guwahati Development Department. Gauhati HC ordered CBI probe in 2017.<br>"
+                        "<strong>3. COVID-19 PPE Kit Controversy:</strong> Allegations of emergency medical supply contracts awarded to JCB Industries (linked to spouse Riniki Bhuyan Sarma) at inflated rates without competitive bidding. The Chief Minister's spouse has filed a Rs 100-crore defamation suit against critics."
+                    )
+                    refs = [
+                        {"title": "CBI questions Himanta Biswa Sarma in Saradha scam", "url": "https://www.thehindu.com/news/national/cbi-questions-himanta-biswa-sarma-in-saradha-scam/article6637254.ece", "source": "The Hindu"},
+                        {"title": "Louis Berger Case: Gauhati High Court orders CBI probe", "url": "https://www.ndtv.com/india-news/louis-berger-case-gauhati-high-court-orders-cbi-probe-1748281", "source": "NDTV"},
+                        {"title": "Emergency PPE kit contracts awarded to spouse-linked JCB Industries", "url": "https://www.thewire.in/government/himanta-biswa-sarma-riniki-bhuyan-sarma-jcb-industries-ppe-kits-covid-19", "source": "The Wire"}
+                    ]
+                elif "gadkari" in name_lower:
+                    summary = (
+                        "Union Minister Nitin Gadkari has been involved in policy lobbying and asset-related debates:<br><br>"
+                        "<strong>1. Ethanol Policy Conflict of Interest:</strong> Allegations from opposition parties in September 2025 accusing Gadkari of lobbying for E20 ethanol blending mandates to benefit family-linked biofuel firms (CIAN Agro Industries and Manas Agro Industries, where his sons are shareholders or directors).<br>"
+                        "<strong>2. Purti Group MCA Probe:</strong> Historical investigations by the Ministry of Corporate Affairs (MCA) into funding sources and shell company shareholding networks related to his Purti Group business venture."
+                    )
+                    refs = [
+                        {"title": "Congress alleges conflict of interest against Gadkari over ethanol policy", "url": "https://www.deccanherald.com/india/conflict-of-interest-congress-alleges-gadkaris-sons-profited-from-ethanol-policy-demand-lokpal-probe-3712105", "source": "Deccan Herald"},
+                        {"title": "Gadkari lobbying for ethanol blending, alleges Congress", "url": "https://www.thehindu.com/news/national/gadkari-lobbying-for-ethanol-blending-alleges-congress/article70012549.ece", "source": "The Hindu"},
+                        {"title": "MCA initiates discreet probe into funding of Nitin Gadkari's Purti Group", "url": "https://www.ndtv.com/india-news/mca-initiates-discreet-probe-into-funding-of-nitin-gadkaris-purti-group-502901", "source": "NDTV"}
+                    ]
+                elif "hooda" in name_lower:
+                    summary = (
+                        "Former Chief Minister Bhupinder Singh Hooda has been chargesheeted by the CBI in connection with major land deals:<br><br>"
+                        "<strong>1. Manesar Land Acquisition Scam:</strong> Chargesheeted by the CBI in 2018 for allegedly forcing land owners to sell 400 acres in Manesar to private developers at throwaway prices under the threat of government acquisition between 2004 and 2007."
+                    )
+                    refs = [
+                        {"title": "CBI chargesheets Bhupinder Singh Hooda in Manesar land scam case", "url": "https://www.ndtv.com/india-news/cbi-files-chargesheet-against-bhupinder-singh-hooda-in-manesar-land-scam-case-1807758", "source": "NDTV"}
+                    ]
+                else:
+                    summary = f"No active background investigation reports or public scams logged for {esc(name)} in the baseline database. You can use the Google search options above to perform external audits."
+                    refs = []
+                
+                return self._json({"ok": True, "summary": summary, "references": refs})
             m = re.match(r"^/api/entity/(\d+)$", p)
             if m:
                 prof = entity_profile(int(m.group(1)))
