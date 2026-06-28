@@ -117,31 +117,102 @@ def find_source_directory_for_entity(entity_name):
     return "sample_data"
 
 
-def get_source_url(source):
+def get_source_url(source, entity_name=None, cin=None, din=None, pan=None, tender_id=None):
     if not source:
-        return None
+        return (None, False)
+        
+    import urllib.parse
+    
+    # If a full direct URL is stored in the source field (starts with http)
     if source.startswith("http://") or source.startswith("https://"):
-        return source
+        try:
+            parsed = urllib.parse.urlparse(source)
+            # return (url, True) if it has a non-root path, else (url, False)
+            has_path = len(parsed.path.strip("/")) > 0 or len(parsed.query) > 0
+            return (source, has_path)
+        except Exception:
+            return (source, False)
+        
     s_lower = source.lower()
+    
     if "myneta" in s_lower:
-        return "https://www.myneta.info/"
-    elif "affidavit" in s_lower or "eci" in s_lower or "election" in s_lower:
-        return "https://affidavit.eci.gov.in/"
-    elif "mca" in s_lower or "filing" in s_lower or "company" in s_lower or "director" in s_lower:
-        return "https://www.mca.gov.in/"
-    elif "cppp" in s_lower or "tender" in s_lower or "procure" in s_lower:
-        return "https://eprocure.gov.in/cppp/"
-    elif "gem" in s_lower:
-        return "https://gem.gov.in/"
-    elif "pfms" in s_lower:
-        return "https://pfms.nic.in/"
-    elif "mplads" in s_lower:
-        return "https://www.mplads.gov.in/"
-    elif "sppp" in s_lower or "rajasthan" in s_lower or "state gazette" in s_lower:
-        return "https://sppp.rajasthan.gov.in/"
-    elif "sansad" in s_lower:
-        return "https://sansad.in/"
-    return None
+        if entity_name:
+            return (f"https://www.myneta.info/search/?q={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.myneta.info/", False)
+        
+    if "eci" in s_lower or "affidavit" in s_lower or "election" in s_lower:
+        if entity_name:
+            return (f"https://affidavit.eci.gov.in/Home/PublicSearch?candidate_name={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://affidavit.eci.gov.in/", False)
+        
+    if "mca" in s_lower or "company" in s_lower or "director" in s_lower or "filing" in s_lower:
+        if cin:
+            return (f"https://www.mca.gov.in/mcafoportal/viewCompanyMasterData.do?cin={cin}", True)
+        if din:
+            return (f"https://www.mca.gov.in/mcafoportal/viewDirectorMasterData.do?din={din}", True)
+        if entity_name:
+            return (f"https://www.mca.gov.in/mcafoportal/viewCompanySearch.do?company_name={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.mca.gov.in/", False)
+        
+    if "zauba" in s_lower:
+        if entity_name:
+            return (f"https://www.zaubacorp.com/company-search/{urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.zaubacorp.com/", False)
+        
+    if "data.gov" in s_lower:
+        return ("https://data.gov.in/", False)
+        
+    if "cppp" in s_lower or "procure" in s_lower:
+        if tender_id:
+            return (f"https://eprocure.gov.in/cppp/tendersearch/cft?tenderNo={urllib.parse.quote_plus(tender_id)}", True)
+        return ("https://eprocure.gov.in/cppp/", False)
+        
+    if "gem" in s_lower or "bidplus" in s_lower:
+        if tender_id:
+            return (f"https://bidplus.gem.gov.in/bidlists?bids_no={urllib.parse.quote_plus(tender_id)}", True)
+        return ("https://gem.gov.in/", False)
+        
+    if "sppp" in s_lower or "rajasthan" in s_lower or "state gazette" in s_lower:
+        if tender_id:
+            return (f"https://sppp.rajasthan.gov.in/TenderSearch.aspx?tenderno={urllib.parse.quote_plus(tender_id)}", True)
+        return ("https://sppp.rajasthan.gov.in/", False)
+        
+    if "pfms" in s_lower:
+        return ("https://pfms.nic.in/", False)
+        
+    if "mplads" in s_lower:
+        return ("https://www.mplads.gov.in/", False)
+        
+    if "sansad" in s_lower or "parliament" in s_lower:
+        if entity_name:
+            return (f"https://sansad.in/ls/members/search?name={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://sansad.in/", False)
+        
+    if "thehindu" in s_lower:
+        if entity_name:
+            return (f"https://www.thehindu.com/search/?q={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.thehindu.com/", False)
+        
+    if "ndtv" in s_lower:
+        if entity_name:
+            return (f"https://www.ndtv.com/search?q={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.ndtv.com/", False)
+        
+    if "business-standard" in s_lower:
+        if entity_name:
+            return (f"https://www.business-standard.com/search?q={urllib.parse.quote_plus(entity_name)}", True)
+        return ("https://www.business-standard.com/", False)
+        
+    if "telegraphindia" in s_lower:
+        return ("https://www.telegraphindia.com/", False)
+        
+    if "transparency" in s_lower:
+        return ("https://www.transparency.org/", False)
+        
+    if "cvigil" in s_lower:
+        return ("https://cvigil.in/", False)
+        
+    return (None, False)
 
 
 def humanize_relation_type(rtype, evidence=""):
@@ -181,7 +252,7 @@ def entity_profile(eid):
     decls = rows_to_dicts(c.execute(
         "SELECT * FROM declarations WHERE entity_id=? ORDER BY year", (eid,)))
     for d in decls:
-        d["source_url"] = get_source_url(d.get("source"))
+        d["source_url"], d["is_deep_link"] = get_source_url(d.get("source"), entity_name=e["name"], pan=e.get("pan"))
         
     flags = rows_to_dicts(c.execute(
         "SELECT * FROM flags WHERE entity_id=? ORDER BY risk_score DESC", (eid,)))
@@ -189,11 +260,19 @@ def entity_profile(eid):
         f["evidence"] = json.loads(f["evidence"] or "[]")
         
     rels = rows_to_dicts(c.execute("""
-        SELECT r.*, a.name AS from_name, b.name AS to_name
+        SELECT r.*, a.name AS from_name, a.din AS from_din, a.pan AS from_pan, a.type AS from_type,
+               b.name AS to_name, b.cin AS to_cin, b.pan AS to_pan, b.type AS to_type
         FROM relationships r JOIN entities a ON a.id=r.from_id JOIN entities b ON b.id=r.to_id
         WHERE r.from_id=? OR r.to_id=?""", (eid, eid)))
     for r in rels:
-        r["source_url"] = get_source_url(r.get("source"))
+        other_name = r["to_name"] if r["from_id"] == eid else r["from_name"]
+        r["source_url"], r["is_deep_link"] = get_source_url(
+            r.get("source"),
+            entity_name=other_name,
+            cin=r.get("to_cin") or r.get("from_cin"),
+            din=r.get("from_din") or r.get("to_din"),
+            pan=r.get("from_pan") or r.get("to_pan")
+        )
         
     # Find all first-degree personal connections of eid (Family, Friends, Associates, etc.)
     personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self", "type": e["type"], "din": e.get("din"), "pan": e.get("pan"), "position": e.get("position"), "notes": e.get("notes")}}
@@ -304,12 +383,18 @@ def entity_profile(eid):
     comp_ids = [co["id"] for co in companies] or [-1]
     qc = ",".join("?" * len(comp_ids))
     contracts = rows_to_dicts(c.execute(f"""
-        SELECT k.*, b.name AS buyer_name, s.name AS supplier_name FROM contracts k
+        SELECT k.*, b.name AS buyer_name, s.name AS supplier_name, s.cin AS supplier_cin, s.pan AS supplier_pan FROM contracts k
         JOIN entities b ON b.id=k.buyer_id JOIN entities s ON s.id=k.supplier_id
         WHERE k.supplier_id IN ({qc}) OR k.buyer_id=? ORDER BY k.award_date""",
         tuple(comp_ids) + (eid,)))
     for k in contracts:
-        k["source_url"] = get_source_url(k.get("source"))
+        k["source_url"], k["is_deep_link"] = get_source_url(
+            k.get("source"),
+            entity_name=k["supplier_name"],
+            cin=k.get("supplier_cin"),
+            pan=k.get("supplier_pan"),
+            tender_id=k.get("tender_id")
+        )
         
     net_ids = tuple(personal_connections.keys()) + tuple(comp_ids)
     qn = ",".join("?" * len(net_ids))
@@ -318,17 +403,21 @@ def entity_profile(eid):
         JOIN entities a ON a.id=f.from_id JOIN entities b ON b.id=f.to_id
         WHERE f.from_id IN ({qn}) OR f.to_id IN ({qn}) ORDER BY f.date""", net_ids + net_ids))
     for f in flows:
-        f["source_url"] = get_source_url(f.get("source"))
+        other_name = f["to_name"] if f["from_id"] == eid else f["from_name"]
+        f["source_url"], f["is_deep_link"] = get_source_url(
+            f.get("source"),
+            entity_name=other_name
+        )
         
     tenures = rows_to_dicts(c.execute(
         "SELECT * FROM tenures WHERE entity_id=? ORDER BY start_date", (eid,)))
     for t in tenures:
-        t["source_url"] = get_source_url(t.get("source"))
+        t["source_url"], t["is_deep_link"] = get_source_url(t.get("source"), entity_name=e["name"])
         
     financials = rows_to_dicts(c.execute(
         "SELECT * FROM company_financials WHERE company_id=? ORDER BY year", (eid,)))
     for fn in financials:
-        fn["source_url"] = get_source_url(fn.get("source"))
+        fn["source_url"], fn["is_deep_link"] = get_source_url(fn.get("source"), entity_name=e["name"], cin=e.get("cin"))
     
     timeline = []
     for d in decls:

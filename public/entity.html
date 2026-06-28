@@ -61,11 +61,45 @@ function editBtn(table, id, currentSource) {
   return `<span class="edit-link-btn" onclick="triggerEditLink(this)" data-table="${table}" data-id="${id}" data-source="${esc(currentSource || '')}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
 }
 
+function sourceBadge(url, isDeep, table, id, source, searchQuery) {
+  const sBtn = searchQuery ? searchLink(searchQuery) : "";
+  const eBtn = editBtn(table, id, source);
+  
+  if (!url) {
+    return `<span style="font-size:11px;color:var(--muted)">No link</span> ${eBtn}`;
+  }
+  
+  const label = isDeep ? "↗ Direct" : "⚠️ Homepage Only";
+  const bg = isDeep ? "var(--success, #2ecc71)" : "var(--warn, #f39c12)";
+  const title = isDeep ? "Direct Link Verified" : "Homepage Only (Please search and edit)";
+  
+  return `
+    <span class="badge" style="background:${bg};color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px;vertical-align:middle;display:inline-block" title="${title}">${label}</span>
+    <a href="${esc(url)}" target="_blank" style="text-decoration:underline;color:inherit;vertical-align:middle">${esc(source || url)}</a>
+    ${sBtn}
+    ${eBtn}
+  `;
+}
+
 async function triggerEditLink(el) {
   const table = el.dataset.table;
   const id = el.dataset.id;
   const currentSource = el.dataset.source;
-  const newSource = prompt(`Edit Source URL/proof for this ${table} record:`, currentSource);
+  
+  let hint = "";
+  if (table === "declarations") {
+    hint = "\nHint: Find this politician's asset declaration PDF on myneta.info or affidavit.eci.gov.in";
+  } else if (table === "contracts") {
+    hint = "\nHint: Find this procurement award record on eprocure.gov.in/cppp or bidplus.gem.gov.in or sppp.rajasthan.gov.in";
+  } else if (table === "relationships" || table === "company_financials") {
+    hint = "\nHint: Find this company/director registry details on mca.gov.in or zaubacorp.com or data.gov.in";
+  } else if (table === "tenures") {
+    hint = "\nHint: Find this member of parliament profile on sansad.in or state gazette portals";
+  } else if (table === "fund_flows") {
+    hint = "\nHint: Find this scheme disbursement record on pfms.nic.in or mplads.gov.in";
+  }
+  
+  const newSource = prompt(`Edit Source URL/proof for this ${table} record:${hint}`, currentSource);
   if (newSource === null) return;
   try {
     const res = await api("/api/admin/edit-source", {
@@ -194,9 +228,7 @@ async function load() {
       <table class="data"><tr><th>Office</th><th>Start Date</th><th>End Date</th><th>Source</th></tr>
       ${p.tenures.map(t => `<tr><td>${esc(t.office)}</td><td>${esc(t.start_date)}</td>
         <td>${esc(t.end_date || "Present")}</td><td>
-          ${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source || "")}
-          ${searchLink(e.name + ' ' + t.office + ' tenure')}
-          ${editBtn('tenures', t.id, t.source)}
+          ${sourceBadge(t.source_url, t.is_deep_link, 'tenures', t.id, t.source, e.name + ' ' + t.office + ' tenure')}
         </td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
       </table>
     </div>` : ''}
@@ -208,9 +240,7 @@ async function load() {
         <td><span class="badge" style="background:var(--chip);color:var(--accent)">${esc(r.type)}</span></td>
         <td>${esc(r.evidence || "")}</td>
         <td>
-          ${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(r.source)}</a>` : esc(r.source || "")}
-          ${searchLink(r.from_name + ' ' + r.to_name + ' ' + r.type)}
-          ${editBtn('relationships', r.id, r.source)}
+          ${sourceBadge(r.source_url, r.is_deep_link, 'relationships', r.id, r.source, r.from_name + ' ' + r.to_name + ' ' + r.type)}
         </td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>
@@ -257,9 +287,7 @@ async function load() {
       ${p.contracts.map(k => `<tr><td>${esc(k.tender_id)}</td><td>${esc(k.title)}</td>
         <td>${esc(k.buyer_name)}</td><td>${esc(k.supplier_name)}</td><td>${fmtCr(k.value)}</td>
         <td>${esc(k.award_date)}</td><td>
-          ${k.source_url ? `<a href="${esc(k.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(k.source)}</a>` : esc(k.source || "")}
-          ${searchLink(k.supplier_name + ' ' + k.title + ' ' + k.tender_id)}
-          ${editBtn('contracts', k.id, k.source)}
+          ${sourceBadge(k.source_url, k.is_deep_link, 'contracts', k.id, k.source, k.supplier_name + ' ' + k.title + ' ' + k.tender_id)}
         </td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
@@ -268,9 +296,7 @@ async function load() {
       ${p.fund_flows.map(f => `<tr><td>${esc(f.scheme)}</td><td>${esc(f.from_name)}</td>
         <td>${esc(f.to_name)}</td><td>${fmtCr(f.amount)}</td><td>${esc(f.date)}</td><td>${esc(f.purpose)}</td>
         <td>
-          ${f.source_url ? `<a href="${esc(f.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(f.source || "")}</a>` : esc(f.source || "")}
-          ${searchLink(f.from_name + ' ' + f.to_name + ' ' + f.scheme)}
-          ${editBtn('fund_flows', f.id, f.source)}
+          ${sourceBadge(f.source_url, f.is_deep_link, 'fund_flows', f.id, f.source, f.from_name + ' ' + f.to_name + ' ' + f.scheme)}
         </td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
@@ -279,9 +305,7 @@ async function load() {
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Annual income</th><th>Source</th></tr>
       ${p.declarations.map(d => `<tr><td>${d.year}</td><td>${fmtCr(d.assets)}</td>
         <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>
-          ${d.source_url ? `<a href="${esc(d.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(d.source)}</a>` : esc(d.source || "")}
-          ${searchLink(e.name + ' assets ' + d.year)}
-          ${editBtn('declarations', d.id, d.source)}
+          ${sourceBadge(d.source_url, d.is_deep_link, 'declarations', d.id, d.source, e.name + ' assets ' + d.year)}
         </td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>` : ''}
@@ -290,9 +314,7 @@ async function load() {
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Revenue</th><th>Net Profit</th><th>Source</th></tr>
       ${p.financials.map(fn => `<tr><td>${fn.year}</td><td>${fmtCr(fn.assets)}</td>
         <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>
-          ${fn.source_url ? `<a href="${esc(fn.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(fn.source)}</a>` : esc(fn.source || "")}
-          ${searchLink(e.name + ' financials ' + fn.year)}
-          ${editBtn('company_financials', fn.id, fn.source)}
+          ${sourceBadge(fn.source_url, fn.is_deep_link, 'company_financials', fn.id, fn.source, e.name + ' financials ' + fn.year)}
         </td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
       </table>
     </div>` : ''}

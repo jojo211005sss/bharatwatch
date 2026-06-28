@@ -8,6 +8,16 @@ Supported datasets (CSV headers, case-insensitive):
   fundflows  : scheme,from,to,amount,date,purpose,source
   relations  : from_name,to_name,type,evidence,source
 
+Dataset Types to Source Domain Mappings:
+  affidavits  -> ECI (affidavit.eci.gov.in) / MyNeta (myneta.info)
+  companies   -> MCA (mca.gov.in) / ZaubaCorp (zaubacorp.com) / data.gov.in
+  directors   -> MCA (mca.gov.in) / data.gov.in
+  contracts   -> CPPP (eprocure.gov.in) / GeM (gem.gov.in) / SPPP (sppp.rajasthan.gov.in)
+  fundflows   -> PFMS (pfms.nic.in) / MPLADS (mplads.gov.in)
+  relations   -> any secondary source (e.g. ndtv.com, thehindu.com, wikipedia.org)
+  financials  -> MCA filings
+  tenures     -> Sansad.in (sansad.in) / state gazette
+
 Rows that resolve confidently are written directly; grey-zone matches go to
 the review queue (optionally adjudicated by Claude via resolve.ai_adjudicate).
 """
@@ -30,7 +40,11 @@ def validate_source(url: str):
     if not url or not url.startswith("http"):
         raise ValueError(f"Invalid source URL: {url}")
     domain = urlparse(url).netloc
-    if domain not in PRIMARY_DOMAINS and domain not in SECONDARY_DOMAINS:
+    bare_domain = domain.removeprefix("www.")
+    # Concession for wikipedia or other common source platforms if needed, but match verify_sources
+    if (domain not in PRIMARY_DOMAINS and domain not in SECONDARY_DOMAINS and
+        bare_domain not in PRIMARY_DOMAINS and bare_domain not in SECONDARY_DOMAINS and
+        "wikipedia.org" not in domain and "wikipedia.org" not in bare_domain):
         raise ValueError(f"Unsupported source domain '{domain}' in URL {url}")
 DATASETS = ("affidavits", "companies", "directors", "contracts", "fundflows", "relations", "financials", "tenures")
 

@@ -33,8 +33,16 @@ USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 PRIMARY_DOMAINS = {
     "data.gov.in",
     "eci.gov.in",
+    "affidavit.eci.gov.in",
     "myneta.info",
+    "www.myneta.info",
+    "mca.gov.in",
+    "www.mca.gov.in",
+    "eprocure.gov.in",
+    "gem.gov.in",
+    "bidplus.gem.gov.in",
     "pfms.nic.in",
+    "sansad.in",
 }
 
 # Secondary domains – allowed to bypass missing required keywords (trusted sources)
@@ -47,6 +55,8 @@ SECONDARY_DOMAINS = {
     "cvigil.in",
     "cybercrime.gov.in",
     "transparency.org",
+    "sppp.rajasthan.gov.in",
+    "mplads.gov.in",
 }
 
 
