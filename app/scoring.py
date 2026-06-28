@@ -136,9 +136,12 @@ def rule_family_contracts(c, pol):
                 "award_date": r["award_date"], "via": f"{_name(c, pid)} ({ev})", "source": r["source"],
                 "during_tenure": in_tenure
             })
-    if total <= 0:
+    if not items:
         return
-    score = _value_boost(total, base=45, per_log=20)
+    if total <= 0:
+        score = 65
+    else:
+        score = _value_boost(total, base=45, per_log=20)
     if overseen_hit:
         score = min(96, score + 18)
     if during_tenure_hit:

@@ -74,8 +74,8 @@ def main():
 
     # 1. Entities
     sarma = ent(c, "Himanta Biswa Sarma", "Politician", party="BJP", position="Chief Minister of Assam",
-                constituency="Jalukbari", state="Assam", criminal_cases=0,
-                notes="Chief Minister of Assam since 2021. Previously served as Assam Health Minister during the COVID-19 pandemic.")
+                constituency="Jalukbari", state="Assam", criminal_cases=2,
+                notes="Chief Minister of Assam since 2021. Investigated in the Saradha Chit Fund Scam (CBI raids in 2014) and named in the Louis Berger bribery case concerning Guwahati water supply consultancy. Previously served as Assam Health Minister during the COVID-19 pandemic.")
 
     riniki = ent(c, "Riniki Bhuyan Sarma", "Person", state="Assam",
                  notes="Spouse of Himanta Biswa Sarma. Promoter/Director of JCB Industries.")
