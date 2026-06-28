@@ -653,6 +653,15 @@ class Handler(BaseHTTPRequestHandler):
                         {"title": "Court frames charges against Lalu Prasad Yadav and family in Land for Job case", "url": "https://www.deccanherald.com/india/delhi-court-frames-charges-against-lalu-prasad-rabri-devi-in-land-for-jobs-case-3712109", "source": "Deccan Herald"},
                         {"title": "Supreme Court refuses to quash CBI case in Land for Job scam", "url": "https://www.thehindu.com/news/national/supreme-court-allows-cbi-trial-against-lalu-prasad-yadav-in-land-for-job-case/article70012552.ece", "source": "The Hindu"}
                     ]
+                elif "mohan" in name_lower:
+                    summary = (
+                        "Madhya Pradesh Chief Minister Dr. Mohan Yadav has faced political scrutiny regarding property acquisitions:<br><br>"
+                        "<strong>1. Ujjain Land Scam Allegations:</strong> In June 2026, the opposition Congress party alleged that members of Mohan Yadav's family and linked real estate developers acquired 137 plots covering ~168 acres in Ujjain after he assumed the CM office. They claim the land was purchased due to planned infrastructure expansions ahead of the 2028 Simhastha Kumbh. The BJP and CM's office have dismissed the claims as completely baseless, stating no new land was acquired post-elections."
+                    )
+                    refs = [
+                        {"title": "Congress alleges Ujjain land scam linked to CM Mohan Yadav's family", "url": "https://www.thehindu.com/news/national/other-states/congress-alleges-ujjain-land-scam-linked-to-madhya-pradesh-cm-mohan-yadavs-family/article68312051.ece", "source": "The Hindu"},
+                        {"title": "Mohan Yadav CMO releases statement denying Ujjain land allegations", "url": "https://www.thehindu.com/news/national/other-states/madhya-pradesh-cmo-says-no-change-in-cm-mohan-yadavs-property-since-2023-affidavit/article68314522.ece", "source": "The Hindu"}
+                    ]
                 else:
                     summary = f"No active background investigation reports or public scams logged for {name} in the baseline database. You can use the Google search options above to perform external audits."
                     refs = []

@@ -576,7 +576,8 @@ def rule_scam_detection(c, pol):
         "irregularity", "siphon", "kickback", "bribe", "corruption",
         "laundering", "disproportionate", "benami", "bogus", "fake",
         "shell", "hawala", "ponzi", "chit fund", "illegal", "bribery",
-        "cbi raid", "ed investigation", "chargesheeted", "accused"
+        "cbi raid", "ed investigation", "chargesheeted", "accused",
+        "allegations", "allegation", "controversy"
     ]
 
     # 1. Check entity notes for scams
