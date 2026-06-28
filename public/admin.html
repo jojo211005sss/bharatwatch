@@ -20,7 +20,11 @@
   </div>
 
   <div id="panel" style="display:none">
-    <h2 class="section-title">1 · Upload public-source CSV</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 class="section-title" style="margin:0">1 · Upload public-source CSV</h2>
+      <button class="ghost" onclick="toggleHelp(true)" style="background:var(--panel2);color:var(--accent);font-weight:700;display:inline-flex;align-items:center;gap:6px">📖 Teach me how</button>
+    </div>
+    
     <div class="card">
       <div class="filters">
         <select id="dataset">
@@ -42,6 +46,42 @@
       <button class="ghost" onclick="upload()">Import &amp; normalize</button>
       <button class="ghost" onclick="rescore()">Re-run detection only</button>
       <div id="upMsg"></div>
+    </div>
+
+    <!-- Help Modal Window -->
+    <div id="helpModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;padding:20px">
+      <div class="card" style="max-width:750px;width:100%;max-height:85vh;overflow-y:auto;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
+          <h2 style="margin:0;font-size:22px">📖 How to Export & Upload CSV Data</h2>
+          <button class="ghost" onclick="toggleHelp(false)" style="font-weight:700">✕ Close</button>
+        </div>
+        
+        <h3 style="margin-top:0">1. Why do we use CSV files?</h3>
+        <p style="font-size:14px;line-height:1.5;color:var(--muted)">
+          <strong>CSV (Comma-Separated Values)</strong> is a universal, lightweight plain-text format. Unlike excel spreadsheets (`.xlsx`) which contain hidden styling, formulas, and complex binary encoding, CSVs contain raw table text separated simply by commas. This makes them fast to parse on local servers without complex libraries, and completely cross-compatible with Excel, Google Sheets, or python scripts.
+        </p>
+
+        <h3>2. Getting & Structuring data from MyNeta</h3>
+        <ol style="font-size:14px;line-height:1.6;padding-left:20px">
+          <li>Go to any politician's profile page on <a href="https://myneta.info" target="_blank" style="text-decoration:underline">myneta.info</a>.</li>
+          <li>Highlight and select the personal details or asset/liability tables on the page with your mouse, and copy them (**`Cmd+C`** / **`Ctrl+C`**).</li>
+          <li>Open a blank sheet in Google Sheets or Microsoft Excel, and paste (**`Cmd+V`** / **`Ctrl+V`**). The rows will align automatically.</li>
+          <li>Modify the header row (the first row) of your sheet to exactly match one of our recognized schema column formats shown in the dropdown options (e.g. <code>name</code>, <code>pan</code>, <code>party</code>, <code>assets</code>, <code>income</code>).</li>
+        </ol>
+
+        <h3>3. Exporting & Uploading</h3>
+        <ol style="font-size:14px;line-height:1.6;padding-left:20px" start="5">
+          <li>In your spreadsheet, go to <strong>File > Download (or Save As) > Comma-Separated Values (.csv)</strong>.</li>
+          <li>In this Admin Panel:
+            <ul>
+              <li>Select the correct target dataset type from the dropdown (e.g., choose <em>ECI affidavits</em> for candidate declarations).</li>
+              <li>Click the **Choose File** button to select your saved `.csv` file (or open it, copy the text, and paste it directly into the text area).</li>
+            </ul>
+          </li>
+          <li>Click **`Import & normalize`**.</li>
+          <li>Any records with spelling discrepancies (e.g. "NHAI" vs "National Highways Authority of India") will show up in the **Manual review queue** below. You can merge them or keep them as new entities.</li>
+        </ol>
+      </div>
     </div>
 
     <h2 class="section-title">2 · Manual review queue</h2>
@@ -133,6 +173,11 @@ async function loadImports() {
     <table class="data"><tr><th>When</th><th>File</th><th>Dataset</th><th>Result</th></tr>
     ${rows.map(r => `<tr><td>${esc(r.created_at)}</td><td>${esc(r.filename)}</td>
       <td>${esc(r.dataset)}</td><td>${esc(r.summary)}</td></tr>`).join("")}</table>` : "<p>No imports yet.</p>";
+}
+
+function toggleHelp(show) {
+  const modal = document.getElementById("helpModal");
+  modal.style.display = show ? "flex" : "none";
 }
 
 if (token) show();
