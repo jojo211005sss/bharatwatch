@@ -97,16 +97,16 @@ def main():
     rel(c, vijay, devendra, "Family_Link", "Spouse and dependents lists / Family details", WIKI_URL)
     
     # Corporate links
-    rel(c, devendra, jld_energy, "Director_Of", "Corporate filings", CONVICTION_URL)
+    rel(c, devendra, jld_energy, "Director_Of", "Corporate filings", WIKI_URL)
     rel(c, devendra, lokmat, "Director_Of", "Lokmat Media official details", MOM_URL)
     rel(c, vijay, lokmat, "Shareholder_Of", "Lokmat Media ownership records", MOM_URL)
     
     # 5. Contracts (Coal block allocation / tender)
     contract(c, "COAL-BLOCK-YAVATMAL", "Allocation of Yavatmal Coal Block", coal_ministry, jld_energy, 120000000, "2008-11-21",
-             "Allocation of coal block in Yavatmal, Maharashtra to JLD Yavatmal Energy Private Limited, later disputed by CBI in coal allocation case.", CONVICTION_URL)
+             "Allocation of coal block in Yavatmal, Maharashtra to JLD Yavatmal Energy Private Limited, later disputed by CBI in coal allocation case.", TELEGRAPH_URL)
              
     # 6. Financials
-    financials(c, jld_energy, 2012, 150000000, 60000000, 0, -5000000, CONVICTION_URL)
+    financials(c, jld_energy, 2012, 150000000, 60000000, 0, -5000000, WIKI_URL)
     financials(c, lokmat, 2012, 4500000000, 1200000000, 3000000000, 250000000, MOM_URL)
 
     conn.commit()

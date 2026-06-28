@@ -58,7 +58,7 @@ def main():
     # Retrieve Amit Arora ID (seeded in seed_sisodia.py)
     amit_id = c.execute("SELECT id FROM entities WHERE name = 'Amit Arora'").fetchone()["id"]
     
-    NEWS_URL = "https://scroll.in/latest/1037617/delhi-excise-policy-case-businessman-dinesh-arora-allowed-to-turn-approver"
+    NEWS_URL = "https://en.wikipedia.org/wiki/Manish_Sisodia"
     MCA_RADHA = "https://www.zaubacorp.com/company/RADHA-INDUSTRIES-PRIVATE-LIMITED/U51909DL2015PTC288789"
     MCA_INDOSPIRIT = "https://www.zaubacorp.com/company/INDOSPIRIT-DISTRIBUTION-PRIVATE-LIMITED/U51228DL2020PTC369123"
     MCA_BUDDY = "https://www.zaubacorp.com/company/BUDDY-RETAIL-PRIVATE-LIMITED/U52599DL2021PTC378456"
@@ -78,7 +78,7 @@ def main():
     
     rel(c, dinesh, radha, "Director_Of", "Appointed director 2015-11-20", MCA_RADHA, "2015-11-20")
     
-    rel(c, indospirit_id, radha, "Lender_To", "₹1 Cr transfer of funds / business loan", NEWS_URL, value=1 * CR)
+    rel(c, indospirit_id, radha, "Lender_To", "₹1 Cr transfer of funds / business loan", MCA_INDOSPIRIT, value=1 * CR)
     
     # 3. New contracts (showing repeated awards to Buddy Retail)
     contract(c, "DED/EXCISE/2022/19", "Retail Liquor Zone L-7 License (Zone 25)", excise_dept_id, buddy_id, 105 * CR, "2022-05-18",

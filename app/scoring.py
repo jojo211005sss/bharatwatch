@@ -145,13 +145,11 @@ def rule_family_contracts(c, pol):
         score = min(98, score + 10)
     comp_names = ", ".join(sorted({i["supplier"] for i in items}))
     explanation = (
-        f"{fmt_cr(total)} in government contracts awarded to {comp_names} — "
-        f"firm(s) directed by declared family members of {pol['name']} (shared DIN trail via MCA records). "
-        + ("The awarding department falls under a body this politician oversees or directs funds to. "
-           if overseen_hit else "")
-        + ("One or more contracts were awarded during the politician's active term of office. "
-           if during_tenure_hit else "")
-        + f"Pattern: Politician → Family_Link → Director_Of → Contract_Awarded_To across {len(items)} award(s)."
+        f"Public contracts worth {fmt_cr(total)} were awarded to {comp_names}, which are private companies "
+        f"directed by family members of {pol['name']} (identified via shared corporate director IDs). "
+        + ("The contracts were awarded by departments overseen directly by the politician. " if overseen_hit else "")
+        + ("Some of these contracts were awarded while the politician was actively holding office. " if during_tenure_hit else "")
+        + f"This indicates a significant conflict of interest across {len(items)} government contract awards."
     )
     _add_flag(c, pol["id"], "FAMILY_CONTRACT", score,
               f"{fmt_cr(total)} in contracts to family-linked firms", explanation, total, items)
@@ -176,11 +174,11 @@ def rule_asset_growth(c, pol):
         return
     score = min(94, int(40 + 14 * math.log2(ratio)))
     explanation = (
-        f"Declared assets grew from {fmt_cr(first['assets'])} ({first['year']}) to "
-        f"{fmt_cr(last['assets'])} ({last['year']}) — a rise of {fmt_cr(growth)}. "
-        f"Even assuming all declared income (~{fmt_cr(last['income'])}/yr) was saved and existing "
-        f"assets appreciated 12%/yr, the plausible accumulation is ~{fmt_cr(plausible)}. "
-        f"Observed growth is {ratio:.1f}× the plausible ceiling. Pattern: Incompatible asset growth (ECI affidavits)."
+        f"Unexplained asset growth: The politician's declared assets grew from {fmt_cr(first['assets'])} ({first['year']}) "
+        f"to {fmt_cr(last['assets'])} ({last['year']})—an increase of {fmt_cr(growth)}. "
+        f"Based on their declared annual income (~{fmt_cr(last['income'])}/yr) and standard asset appreciation, "
+        f"this growth is {ratio:.1f}x faster than what their official sources of income could support. "
+        f"This indicates a potential mismatch between declared earnings and wealth accumulation."
     )
     _add_flag(c, pol["id"], "ASSET_GROWTH", score,
               f"Assets grew {ratio:.1f}× faster than declared income allows", explanation, growth,
@@ -238,11 +236,11 @@ def rule_repeated_awards(c, pol):
                 _companies_of(c, web.keys()).keys()) else "linked to an election donor"
             
             explanation = (
-                f"{sup} won {g['n']} of {all_n} contracts ({share:.0%}) worth {fmt_cr(g['total'])} from {buy}, "
-                f"a body overseen by {pol['name']}. The supplier is {how} "
-                f"(shared DIN per MCA records). "
-                + (f"{tenure_n} of these awards occurred during the politician's active term of office. " if tenure_n > 0 else "")
-                + f"Pattern: Repeated awards to a connected company."
+                f"Concentrated contract awards: Private developer/supplier {sup} won {g['n']} out of {all_n} contracts "
+                f"({share:.0%}) worth {fmt_cr(g['total'])} from {buy}, which is overseen by {pol['name']}. "
+                f"The supplier is {how}. "
+                + (f"Importantly, {tenure_n} of these contracts were awarded while the politician was actively in office. " if tenure_n > 0 else "")
+                + "This raises concerns about favoritism and lack of competitive bidding."
             )
             _add_flag(c, pol["id"], "REPEATED_AWARDS", score,
                       f"{sup} won {share:.0%} of {buy} contracts ({fmt_cr(g['total'])})",
@@ -295,13 +293,13 @@ def rule_ghost_entity(c, pol):
                 
         score = min(95, 62 + (15 if shared else 0) + (18 if fin_flagged else 0) + _value_boost(first["value"], base=0, per_log=10, cap=15))
         explanation = (
-            f"{comp['name']} was incorporated on {comp['incorporation_date']} and won its first government "
-            f"order ({first['tender_id']}, {fmt_cr(first['value'])}) only {days} days later. "
-            + (f"It shares a registered address with another firm in the same family network ({shared['evidence']}). "
-               if shared else "")
+            f"Shell company indicators: Private firm {comp['name']} was incorporated on {comp['incorporation_date']} "
+            f"and was awarded its first government contract ({first['tender_id']}, valued at {fmt_cr(first['value'])}) "
+            f"only {days} days later. "
+            + (f"The company shares a registered office address with another firm in the family's network. " if shared else "")
             + fin_info
-            + f" Its director is family-linked to {pol['name']}. Pattern: Ghost-like entity — "
-            f"newly incorporated shell winning public contracts."
+            + f" The company's director is family-linked to {pol['name']}. Winning large public contracts shortly "
+            f"after incorporation is typical of 'ghost' or shell entities set up to siphon public funds."
         )
         _add_flag(c, pol["id"], "GHOST_ENTITY", score,
                   f"{comp['name']} won {fmt_cr(first['value'])} order {days} days after incorporation",
@@ -338,9 +336,9 @@ def rule_fund_loop(c, pol):
                     score = min(90, _value_boost(total, base=55, per_log=12))
                     _add_flag(c, pol["id"], "FUND_LOOP", score,
                               f"Circular fund flow through family network ({fmt_cr(total)})",
-                              f"Funds cycle {names}. Money leaves a family company, passes through an "
-                              f"intermediary (trust/charity), and returns to another firm in the same network. "
-                              f"Pattern: Suspicious fund loop (PFMS/MCA filings).",
+                              f"Circular fund flow detected: {names}. Money flows out from a family-controlled company, "
+                              f"passes through intermediate trusts or entities, and returns back into another company "
+                              f"within the same family network. This circular routing raises a high risk of money laundering or asset siphoning.",
                               total, [dict(e) for e in edges + [f]])
                     return  # one loop per politician is enough for the flag
                 if nxt in network and nxt not in path and len(path) < 4:
@@ -407,6 +405,7 @@ def rule_loan_quid_pro_quo(c, pol):
                         "award_date": r["award_date"],
                         "loan_evidence": f"{loan['type']}: {loan['evidence']} ({loan['source']})",
                         "loan_value": loan["value"],
+                        "source": r["source"],
                         "during_tenure": in_tenure
                     })
                     
@@ -420,10 +419,10 @@ def rule_loan_quid_pro_quo(c, pol):
     f_names = ", ".join(sorted(family_comp_names))
     
     explanation = (
-        f"Quid-pro-quo financing conflict: {c_names} provided funding/loans totaling {fmt_cr(total_loans)} "
-        f"to politician-linked firm {f_names} (associated via family directorships). "
-        f"Subsequently, {c_names} was awarded {len(items)} contract(s) worth {fmt_cr(total_contracts)} "
-        f"by departments overseen by {pol['name']}. Pattern: Politician → Family → Family Company ← Funding ← Contractor ← Contracts from Overseen Department."
+        f"Potential quid-pro-quo financing: Private contractor {c_names} provided loans or funding totaling {fmt_cr(total_loans)} "
+        f"to {f_names} (a firm directed by the politician's family). Subsequently, the same contractor "
+        f"was awarded {len(items)} public contract(s) worth {fmt_cr(total_contracts)} by departments overseen by {pol['name']}. "
+        f"This indicates a severe conflict of interest where a contractor funding a politician's family businesses is favored for government awards."
     )
     
     _add_flag(c, pol["id"], "LOAN_CONFLICT", score,
@@ -543,18 +542,18 @@ def rule_policy_conflict(c, pol):
     is_excise = any(item["conflict_sector"].lower() in ["excise", "liquor", "beverage", "retail zone", "wholesale", "l-1", "l-7"] for item in items)
     if is_excise:
         explanation = (
-            f"Policy Conflict of Interest: {pol['name']} is a major policy-maker for excise and liquor licensing. "
-            f"His first-degree family member(s) ({member_str}) own and manage firms in the liquor/beverage sector. "
-            f"These connected companies won {len(items)} contract(s) worth {fmt_cr(total_val)} related to liquor licensing/distribution. "
-            f"Pattern: Politician promotes excise policy -> Family member owns/directs liquor firm -> Company wins public retail/wholesale contracts."
+            f"Conflict of interest: {pol['name']} is a major policy-maker for excise and liquor licensing, "
+            f"while their first-degree family member(s) ({member_str}) own and manage firms in the liquor and beverage sector. "
+            f"These connected companies won {len(items)} public contract(s) worth {fmt_cr(total_val)} related to liquor licensing and distribution. "
+            f"This creates a direct risk where policy decisions could benefit the family's businesses."
         )
         title = f"Policy Conflict: Liquor contracts won by family firms ({fmt_cr(total_val)})"
     else:
         explanation = (
-            f"Policy Conflict of Interest: {pol['name']} is a major national advocate pushing for ethanol blending and bio-fuels. "
-            f"His first-degree family member(s) ({member_str}) own and manage firms in the ethanol/sugar sector. "
-            f"These connected companies won {len(items)} contract(s) worth {fmt_cr(total_val)} related to ethanol supply. "
-            f"Pattern: Politician promotes ethanol blending policy -> Family member owns/directs ethanol firm -> Company wins public ethanol supply contracts."
+            f"Conflict of interest: {pol['name']} actively promotes and regulates policies on clean energy and ethanol blending, "
+            f"while their first-degree family member(s) ({member_str}) own and manage firms in the ethanol and sugar sector. "
+            f"These connected companies won {len(items)} public contract(s) worth {fmt_cr(total_val)} related to ethanol supply. "
+            f"This creates a direct risk where policy advocacy increases the family's private business revenues."
         )
         title = f"Policy Conflict: Ethanol supply contracts won by family firms ({fmt_cr(total_val)})"
         
@@ -614,11 +613,9 @@ def rule_scam_detection(c, pol):
 
     kw_summary = ", ".join(sorted({kw for i in items for kw in i["matched_keywords"]}))
     explanation = (
-        f"Scam/fraud indicators detected: {len(items)} contract(s) worth {fmt_cr(total_val)} "
-        f"awarded to family-linked firms of {pol['name']} contain keywords [{kw_summary}]. "
-        f"Workflow: Politician → Family_Link → Director_Of/Shareholder_Of → Company wins "
-        f"contracts flagged with irregularity language. "
-        f"Pattern: Potential scam linkage (contract text analysis)."
+        f"Irregularity indicators detected: {len(items)} contract(s) worth {fmt_cr(total_val)} "
+        f"awarded to family-linked firms of {pol['name']} contain keywords related to fraud or cheating (keywords: {kw_summary}). "
+        f"This indicates that contracts awarded to the politician's family network are under active investigation or linked to public scams."
     )
     _add_flag(c, pol["id"], "SCAM_DETECTION", score,
               f"Scam indicators in {len(items)} contracts ({fmt_cr(total_val)})",
@@ -702,13 +699,10 @@ def rule_media_capture(c, pol):
         score = min(95, score + 8)
 
     explanation = (
-        f"Media capture risk: {len(items)} media/advertising contract(s) worth {fmt_cr(total_val)} "
-        f"awarded to family-linked firms of {pol['name']}. "
-        f"⚠ NOTE: Media contracts are shown for transparency but are NOT treated as a confirmed "
-        f"corruption source — further investigation is recommended. "
-        f"Workflow: Politician → Family_Link → Director_Of → Media company wins government "
-        f"advertising/media contracts.{bond_info} "
-        f"Pattern: Potential media capture (contract + relationship analysis)."
+        f"Media capture risk: {len(items)} public media or advertising contract(s) worth {fmt_cr(total_val)} "
+        f"were awarded to media firms directed by family members of {pol['name']}.{bond_info} "
+        f"Note that while media and advertising contracts are shown for transparency, they represent an indirect influence risk "
+        f"rather than confirmed corruption. Further independent verification of these awards is recommended."
     )
     _add_flag(c, pol["id"], "MEDIA_CAPTURE", score,
               f"Media contracts to family-linked firms ({fmt_cr(total_val)})",
@@ -806,12 +800,10 @@ def rule_electoral_bond_loop(c, pol):
         score = min(99, score + 10)
 
     explanation = (
-        f"Electoral bond loop detected ({bond_type}): {names}. "
-        f"Funds cycle through {len(path) - 1} entities in the politician's network. "
-        f"Workflow: Donor/bond-purchaser sends funds → funds pass through intermediary "
-        f"entities (companies/trusts) → benefits return to politician's network via "
-        f"contracts or further donations. Both direct and indirect bond paths were analyzed. "
-        f"Pattern: Circular electoral-bond financing (fund flow + relationship analysis)."
+        f"Circular political financing: An electoral bond/donation loop was detected ({bond_type}): {names}. "
+        f"Funds cycle through {len(path) - 1} connected entities. Money flows from a donor or bond-purchaser "
+        f"through intermediary companies or trusts, and eventually returns to the politician's party or network "
+        f"via contracts or subsequent donations. This creates a high risk of covert policy quid-pro-quos."
     )
     _add_flag(c, pol["id"], "ELECTORAL_BOND_LOOP", score,
               f"Electoral bond loop through network ({fmt_cr(total)})",
@@ -878,12 +870,10 @@ def rule_family_recruitment(c, pol):
     members = ", ".join(sorted({i["family_member"] for i in items}))
     offices = "; ".join(sorted({i["office"] for i in items}))
     explanation = (
-        f"Family recruitment pattern: {len(items)} government position(s) held by "
-        f"family members of {pol['name']}: {members}. "
-        f"Offices/bodies involved: {offices}. "
-        + (f"{overlap_count} position(s) overlap with the politician's active tenure. " if overlap_count else "")
-        + f"Workflow: Politician → Family_Link → Family member holds government office/position. "
-        f"Pattern: Potential nepotism — family members in government roles."
+        f"Potential nepotism: {len(items)} public or government position(s) are concurrently held by family members of {pol['name']} "
+        f"({members}), involving offices or bodies such as: {offices}. "
+        + (f"These appointments overlap directly with the politician's own active tenure in office. " if overlap_count else "")
+        + "Having multiple family members hold public office concurrently raises significant concerns about nepotism and family dynasty influence."
     )
     _add_flag(c, pol["id"], "FAMILY_RECRUITMENT", score,
               f"Family members in {len(items)} govt position(s)",

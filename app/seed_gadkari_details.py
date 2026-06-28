@@ -60,7 +60,7 @@ def main():
     MCA_JASIKA = "https://www.zaubacorp.com/company/JASIKA-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215678"
     MCA_JAINAAM = "https://www.zaubacorp.com/company/JAINAAM-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215679"
     MCA_NEELAY = "https://www.zaubacorp.com/company/NEELAY-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215680"
-    NHAI_TENDER_URL = "https://www.irb.co.in/home/"
+    NHAI_TENDER_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
     PFMS_URL = "https://pfms.nic.in/"
     
     # 1. New entities

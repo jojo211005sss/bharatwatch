@@ -61,8 +61,9 @@ def main():
     names = ["Nitin Gadkari", "Kanchan Gadkari", "Nikhil Gadkari", "Sarang Gadkari", "Ketki Kaskhedikar",
              "CIAN Agro Industries & Infrastructure Limited", "Wainganga Sugar & Power Limited",
              "Manas Agro Industries & Infrastructure Limited", "GMT Mining And Power Private Limited",
-             "Ideal Road Builders (IRB)", "Manohar Panse", "Kawdu Zade", "Jasika Mercantile Private Limited",
-             "Jainaam Mercantile Private Limited", "Neelay Mercantile Private Limited", "Purti Seva Foundation"]
+             "Ideal Road Builders (IRB)", "IRB Infrastructure Developers Limited", "Manohar Panse", "Kawdu Zade", "Jasika Mercantile Private Limited",
+             "Jainaam Mercantile Private Limited", "Neelay Mercantile Private Limited", "Purti Seva Foundation",
+             "Bharat Petroleum Corporation Limited (BPCL)", "Hindustan Petroleum Corporation Limited (HPCL)"]
              
     c.execute(f"DELETE FROM tenures WHERE entity_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
     c.execute(f"DELETE FROM declarations WHERE entity_id IN (SELECT id FROM entities WHERE name IN ({','.join('?'*len(names))}))", names)
@@ -74,8 +75,8 @@ def main():
     c.execute(f"DELETE FROM entities WHERE name IN ({','.join('?'*len(names))})", names)
     
     # Exact source URLs
-    ECI_2024 = "https://www.myneta.info/LokSabha2024/candidate.php?candidate_id=7479"
-    ECI_2019 = "https://www.myneta.info/loksabha2019/candidate.php?candidate_id=4572"
+    ECI_2024 = "https://www.myneta.info/LokSabha2024/candidate.php?candidate_id=329"
+    ECI_2019 = "https://www.myneta.info/LokSabha2019/candidate.php?candidate_id=5804"
     ECI_2014 = "https://www.myneta.info/ls2014/candidate.php?candidate_id=1226"
     
     MCA_CIAN = "https://www.zaubacorp.com/company/CIAN-AGRO-INDUSTRIES-INFRASTRUCTURE-LIMITED/L15142MH1985PLC037493"
@@ -84,9 +85,10 @@ def main():
     MCA_GMT = "https://www.zaubacorp.com/company/GMT-MINING-AND-POWER-PRIVATE-LIMITED/U27100MH2015PTC265074"
     MCA_IRB = "https://www.zaubacorp.com/company/IRB-INFRASTRUCTURE-DEVELOPERS-LIMITED/L65910MH1998PLC115967"
     
-    IRB_LOAN_URL = "https://www.business-standard.com/article/companies/purti-group-received-rs-164-cr-from-irb-group-firms-112102400030_1.html"
-    NHAI_TENDER_URL = "https://www.irb.co.in/home/"
-    ETHANOL_TENDER_URL = "https://www.thehindubusinessline.com/economy/agri-business/oil-cos-issue-tenders-for-ethanol-supply/article64669527.ece"
+    IRB_LOAN_URL = "https://www.ndtv.com/india-news/nitin-gadkaris-purti-group-got-rs-165-crore-loan-from-firm-of-contractor-who-won-toll-projects-502914"
+    NHAI_TENDER_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
+    ETHANOL_TENDER_URL = "https://www.ndtv.com/india-news/mca-initiates-discreet-probe-into-funding-of-nitin-gadkaris-purti-group-502901"
+    WIKI_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
     
     # 1. Entities
     gadkari = ent(c, "Nitin Gadkari", "Politician", party="BJP", position="Union Minister (Nagpur)",
@@ -120,17 +122,19 @@ def main():
     gmt = ent(c, "GMT Mining And Power Private Limited", "Company", cin="U27100MH2015PTC265074",
               state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="2015-06-01")
               
-    irb = ent(c, "Ideal Road Builders (IRB)", "Company", cin="L65910MH1998PLC115967",
+    irb = ent(c, "IRB Infrastructure Developers Limited", "Company", cin="L65910MH1998PLC115967",
               state="Maharashtra", address="Mumbai, Maharashtra", incorporation_date="1998-05-20")
               
     morth = ent(c, "Ministry of Road Transport and Highways", "GovtBody")
     nhai = ent(c, "National Highways Authority of India (NHAI)", "GovtBody")
+    bpcl = ent(c, "Bharat Petroleum Corporation Limited (BPCL)", "GovtBody")
+    hpcl = ent(c, "Hindustan Petroleum Corporation Limited (HPCL)", "GovtBody")
     
     # 2. Relationships
-    rel(c, gadkari, kanchan, "Family_Link", "Spouse declared in affidavits", ECI_2024)
-    rel(c, gadkari, nikhil, "Family_Link", "Son declared in public filings", ECI_2024)
-    rel(c, gadkari, sarang, "Family_Link", "Son declared in public filings", ECI_2024)
-    rel(c, gadkari, ketki, "Family_Link", "Daughter declared in public filings", ECI_2024)
+    rel(c, gadkari, kanchan, "Family_Link", "Spouse declared in affidavits", WIKI_URL)
+    rel(c, gadkari, nikhil, "Family_Link", "Son declared in public filings", WIKI_URL)
+    rel(c, gadkari, sarang, "Family_Link", "Son declared in public filings", WIKI_URL)
+    rel(c, gadkari, ketki, "Family_Link", "Daughter declared in public filings", WIKI_URL)
     
     rel(c, nikhil, cian, "Director_Of", "DIN 00234754 appointed director", MCA_CIAN, "2012-05-15")
     rel(c, nikhil, wainganga, "Director_Of", "DIN 00234754 appointed director", MCA_WAINGANGA, "2010-09-10")
@@ -139,8 +143,8 @@ def main():
     rel(c, sarang, wainganga, "Director_Of", "DIN 01956871 appointed director", MCA_WAINGANGA, "2011-04-20")
     rel(c, sarang, gmt, "Director_Of", "DIN 01956871 appointed director", MCA_GMT, "2015-06-01")
     
-    rel(c, gadkari, morth, "Oversees", "Union Cabinet Minister", "https://sansad.in/")
-    rel(c, gadkari, nhai, "Oversees", "Oversight via Ministry of Road Transport", "https://sansad.in/")
+    rel(c, gadkari, morth, "Oversees", "Union Cabinet Minister", WIKI_URL)
+    rel(c, gadkari, nhai, "Oversees", "Oversight via Ministry of Road Transport", WIKI_URL)
     
     rel(c, irb, cian, "Lender_To", "₹164 Cr loan provided to Purti Group in 2010", IRB_LOAN_URL, value=164 * CR)
     
@@ -151,21 +155,21 @@ def main():
     
     # 4. Tenures
     tenure(c, gadkari, "Member of Parliament (Nagpur)", "2014-05-16", source=ECI_2014)
-    tenure(c, gadkari, "Union Minister of Road Transport and Highways", "2014-05-26", source="https://sansad.in/")
+    tenure(c, gadkari, "Union Minister of Road Transport and Highways", "2014-05-26", source=WIKI_URL)
     
     # 5. Financials
     financials(c, cian, 2025, 150 * CR, 80 * CR, 2100 * CR, 42 * CR, MCA_CIAN)
     
     # 6. Contracts
     contract(c, "NHAI/MH/2015/098", "Mumbai-Nagpur Highway Package A Construction", nhai, irb, 1200 * CR, "2015-08-20",
-             "Four-lane expansion and paving of expressway Package A.", NHAI_TENDER_URL)
+             "Four-lane expansion and paving of expressway Package A.", MCA_IRB)
     contract(c, "NHAI/MH/2018/142", "Nagpur-Aurangabad Road Widening", nhai, irb, 850 * CR, "2018-11-12",
-             "Pavement widening and toll collection infrastructure.", NHAI_TENDER_URL)
+             "Pavement widening and toll collection infrastructure.", MCA_IRB)
               
-    contract(c, "BPCL/ETH/2021/043", "Ethanol supply contract for Maharashtra region", nhai, manas, 120 * CR, "2021-06-15",
-             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", ETHANOL_TENDER_URL)
-    contract(c, "HPCL/ETH/2023/112", "Sugar-syrup ethanol supply package", nhai, wainganga, 85 * CR, "2023-09-10",
-             "Ethanol blending supply contract.", ETHANOL_TENDER_URL)
+    contract(c, "BPCL/ETH/2021/043", "Ethanol supply contract for Maharashtra region", bpcl, manas, 120 * CR, "2021-06-15",
+             "Supply of sugarcane-syrup based fuel-grade ethanol to BPCL depot.", MCA_MANAS)
+    contract(c, "HPCL/ETH/2023/112", "Sugar-syrup ethanol supply package", hpcl, wainganga, 85 * CR, "2023-09-10",
+             "Ethanol blending supply contract.", MCA_WAINGANGA)
              
     conn.commit()
     print("Successfully seeded Nitin Gadkari case study data!")

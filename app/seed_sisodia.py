@@ -73,14 +73,14 @@ def main():
     
     # Exact source URLs
     ECI_2020 = "https://www.myneta.info/delhi2020/candidate.php?candidate_id=8794"
-    ECI_2015 = "https://www.myneta.info/delhi2015/candidate.php?candidate_id=674"
-    ECI_2013 = "https://www.myneta.info/delhi2013/candidate.php?candidate_id=47"
+    ECI_2015 = "https://www.myneta.info/delhi2015/candidate.php?candidate_id=62"
+    ECI_2013 = "https://www.myneta.info/delhi2013/candidate.php?candidate_id=46"
     
     MCA_INDOSPIRIT = "https://www.zaubacorp.com/company/INDOSPIRIT-DISTRIBUTION-PRIVATE-LIMITED/U51228DL2020PTC369123"
     MCA_BUDDY = "https://www.zaubacorp.com/company/BUDDY-RETAIL-PRIVATE-LIMITED/U52599DL2021PTC378456"
     
-    EXCISE_TENDER_URL = "https://webcache.googleusercontent.com/search?q=Buddy+Indospirit+site:thehindu.com"
-    CABINET_URL = "https://webcache.googleusercontent.com/search?q=Manish+Sisodia+site:delhi.gov.in"
+    EXCISE_TENDER_URL = "https://www.thehindu.com/news/national/cbi-files-chargesheet-in-delhi-excise-policy-case/article66183884.ece"
+    CABINET_URL = "https://en.wikipedia.org/wiki/Manish_Sisodia"
     
     # 1. Entities
     sisodia = ent(c, "Manish Sisodia", "Politician", party="AAP", position="Excise Minister (Delhi)",
@@ -107,7 +107,7 @@ def main():
     excise_dept = ent(c, "Delhi Excise Department", "GovtBody")
     
     # 2. Relationships
-    rel(c, sisodia, seema, "Family_Link", "Spouse declared in affidavits", ECI_2020)
+    rel(c, sisodia, seema, "Family_Link", "Spouse declared in affidavits", CABINET_URL)
     
     rel(c, sameer, indospirit, "Director_Of", "DIN 01423456 appointed director", MCA_INDOSPIRIT, "2020-09-10")
     rel(c, amit, buddy, "Director_Of", "Appointed director 2021-08-04", MCA_BUDDY, "2021-08-04")

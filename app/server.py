@@ -144,6 +144,34 @@ def get_source_url(source):
     return None
 
 
+def humanize_relation_type(rtype, evidence=""):
+    rtype_lower = rtype.lower()
+    if rtype_lower == "family_link":
+        ev_lower = (evidence or "").lower()
+        if "son" in ev_lower: return "Son"
+        if "wife" in ev_lower or "spouse" in ev_lower or "husband" in ev_lower: return "Spouse"
+        if "brother" in ev_lower: return "Brother"
+        if "sister" in ev_lower: return "Sister"
+        if "daughter" in ev_lower: return "Daughter"
+        if "father" in ev_lower: return "Father"
+        if "mother" in ev_lower: return "Mother"
+        return "Family Member"
+    if rtype_lower == "friend_link":
+        return "Friend"
+    if rtype_lower == "director_of":
+        return "Director"
+    if rtype_lower == "shareholder_of":
+        return "Shareholder"
+    if rtype_lower in ("works_at", "employee_of"):
+        return "Employee"
+    if rtype_lower == "oversees":
+        return "Oversees"
+    if rtype_lower == "shared_address":
+        return "Shares Address"
+    
+    return rtype.replace("_", " ").title()
+
+
 def entity_profile(eid):
     c = get_db().cursor()
     e = c.execute("SELECT * FROM entities WHERE id=?", (eid,)).fetchone()
@@ -183,9 +211,7 @@ def entity_profile(eid):
         if oth:
             oth_type = oth["type"]
             if oth_type in ("Person", "Politician") or r["type"].lower() in personal_rel_types:
-                desc = f"{r['type']}"
-                if r['evidence']:
-                    desc += f" ({r['evidence']})"
+                rel_desc = humanize_relation_type(r["type"], r["evidence"])
                 personal_connections[other_id] = {
                     "id": oth["id"],
                     "name": oth["name"],
@@ -194,7 +220,7 @@ def entity_profile(eid):
                     "pan": oth["pan"],
                     "position": oth["position"],
                     "notes": oth["notes"],
-                    "rel_to_pol": desc
+                    "rel_to_pol": rel_desc
                 }
 
     # Deeply search for details of the first-degree connections
@@ -256,12 +282,11 @@ def entity_profile(eid):
             if e_row and e_row["type"] in ("Company", "Trust", "GovtBody"):
                 comp_ent = dict(e_row)
                 p_info = personal_connections[p_id]
+                rel_name = humanize_relation_type(r["type"])
                 via_desc = f"{p_info['name']}"
                 if p_id != eid:
-                    via_desc += f" [{p_info['rel_to_pol']}]"
-                via_desc += f" — {r['type']}"
-                if r['evidence']:
-                    via_desc += f" ({r['evidence']})"
+                    via_desc += f" ({p_info['rel_to_pol']})"
+                via_desc += f" — {rel_name}"
                 comp_ent["via"] = via_desc
                 comp_list.append(comp_ent)
                 
@@ -525,6 +550,33 @@ class Handler(BaseHTTPRequestHandler):
                     _tokens.add(tok)
                     return self._json({"token": tok})
                 return self._json({"error": "wrong password"}, 401)
+            if p == "/api/admin/edit-source":
+                body = self._body_json()
+                table = body.get("table")
+                row_id = body.get("id")
+                new_source = body.get("new_source", "").strip()
+                if table not in ("relationships", "contracts", "declarations", "tenures", "company_financials", "fund_flows"):
+                    return self._json({"error": "invalid table"}, 400)
+                if not row_id:
+                    return self._json({"error": "missing id"}, 400)
+                c = get_db().cursor()
+                c.execute(f"UPDATE {table} SET source = ? WHERE id = ?", (new_source, row_id))
+                get_db().commit()
+                rescore()
+                return self._json({"ok": True})
+            if p == "/api/admin/edit-source-by-url":
+                body = self._body_json()
+                current_source = body.get("current_source", "").strip()
+                new_source = body.get("new_source", "").strip()
+                if not current_source:
+                    return self._json({"error": "missing current_source"}, 400)
+                c = get_db().cursor()
+                tables = ("relationships", "contracts", "declarations", "tenures", "company_financials", "fund_flows")
+                for table in tables:
+                    c.execute(f"UPDATE {table} SET source = ? WHERE source = ?", (new_source, current_source))
+                get_db().commit()
+                rescore()
+                return self._json({"ok": True})
             if not self._authed():
                 return self._json({"error": "unauthorized"}, 401)
             if p == "/api/admin/upload":

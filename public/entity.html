@@ -15,6 +15,96 @@ renderHeader("");
 const id = new URLSearchParams(location.search).get("id");
 let cy = null, depth = 2;
 
+function formatValue(key, val) {
+  if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://"))) {
+    return `<a href="${val}" target="_blank" style="color:var(--accent);text-decoration:underline">${esc(val)}</a>
+            <a href="https://www.google.com/search?q=${encodeURIComponent(val)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
+            <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(val)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
+  }
+  if (typeof val === "string" && val.includes("http")) {
+    return val.replace(/(https?:\/\/[^\s\)]+)/g, (match) => {
+      return `<a href="${match}" target="_blank" style="color:var(--accent);text-decoration:underline">${match}</a>
+              <a href="https://www.google.com/search?q=${encodeURIComponent(match)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
+              <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(match)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
+    });
+  }
+  if (key.toLowerCase().includes("value") || key.toLowerCase().includes("assets") || key.toLowerCase().includes("liabilities") || key.toLowerCase().includes("income") || key.toLowerCase().includes("amount")) {
+    if (typeof val === "number") {
+      return fmtCr(val);
+    }
+  }
+  if (typeof val === "object" && val !== null) {
+    return `<div style="padding-left:10px">${Object.entries(val).map(([k, v]) => `<strong>${k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}:</strong> ${formatValue(k, v)}`).join("<br>")}</div>`;
+  }
+  return esc(val);
+}
+
+function renderEvidenceList(evidence) {
+  return `<ul style="margin:8px 0;padding:0;font-size:13px;line-height:1.6">
+    ${evidence.map(item => `
+      <li style="margin-bottom:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;list-style:none;box-shadow:var(--shadow-sm)">
+        ${Object.entries(item).map(([k, v]) => {
+          const label = k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+          return `<div style="margin-bottom:4px"><strong>${label}:</strong> ${formatValue(k, v)}</div>`;
+        }).join("")}
+      </li>
+    `).join("")}
+  </ul>`;
+}
+
+function searchLink(query) {
+  const url = "https://www.google.com/search?q=" + encodeURIComponent(query);
+  return `<a href="${url}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;user-select:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>`;
+}
+
+function editBtn(table, id, currentSource) {
+  return `<span class="edit-link-btn" onclick="triggerEditLink(this)" data-table="${table}" data-id="${id}" data-source="${esc(currentSource || '')}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
+}
+
+async function triggerEditLink(el) {
+  const table = el.dataset.table;
+  const id = el.dataset.id;
+  const currentSource = el.dataset.source;
+  const newSource = prompt(`Edit Source URL/proof for this ${table} record:`, currentSource);
+  if (newSource === null) return;
+  try {
+    const res = await api("/api/admin/edit-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Token": localStorage.getItem("bw-token") || "" },
+      body: JSON.stringify({ table, id: parseInt(id), new_source: newSource })
+    });
+    if (res.ok) {
+      alert("Source URL updated successfully! Refreshing page...");
+      location.reload();
+    } else {
+      alert("Error: " + (res.error || "Failed to update"));
+    }
+  } catch (err) {
+    alert("Error updating link: " + err.message);
+  }
+}
+
+async function triggerEditLinkByUrl(el) {
+  const currentSource = el.dataset.source;
+  const newSource = prompt(`Edit this Source URL everywhere in the database:`, currentSource);
+  if (newSource === null) return;
+  try {
+    const res = await api("/api/admin/edit-source-by-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_source: currentSource, new_source: newSource })
+    });
+    if (res.ok) {
+      alert("Source URL updated successfully! Refreshing page...");
+      location.reload();
+    } else {
+      alert("Error: " + (res.error || "Failed to update"));
+    }
+  } catch (err) {
+    alert("Error updating link: " + err.message);
+  }
+}
+
 const NODE_COLORS = { Politician: "#c0392b", Person: "#b9770e", Company: "#0b66c3",
                       GovtBody: "#0a8f6c", Trust: "#8e44ad", Unknown: "#7f8c8d" };
 const EDGE_COLORS = { Contract_Awarded_To: "#c0392b", Fund_Transfer: "#b9770e",
@@ -79,7 +169,7 @@ async function load() {
         <div class="pattern">PATTERN: ${esc(f.pattern)} · ${fmtCr(f.value_involved || 0)} involved</div>
         <p class="expl">${esc(f.explanation)}</p>
         <details><summary style="cursor:pointer;color:var(--muted)">Evidence records (${f.evidence.length})</summary>
-          <pre style="overflow:auto;font-size:12px">${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>
+          <div style="margin-top:8px">${renderEvidenceList(f.evidence)}</div></details>
       </div>`).join("")}
 
     <div class="tabs" id="tabs">
@@ -103,7 +193,11 @@ async function load() {
     <div class="tabpane" id="pane-tenures">
       <table class="data"><tr><th>Office</th><th>Start Date</th><th>End Date</th><th>Source</th></tr>
       ${p.tenures.map(t => `<tr><td>${esc(t.office)}</td><td>${esc(t.start_date)}</td>
-        <td>${esc(t.end_date || "Present")}</td><td>${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source)}</td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
+        <td>${esc(t.end_date || "Present")}</td><td>
+          ${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source || "")}
+          ${searchLink(e.name + ' ' + t.office + ' tenure')}
+          ${editBtn('tenures', t.id, t.source)}
+        </td></tr>`).join("") || "<tr><td colspan=4>None</td></tr>"}
       </table>
     </div>` : ''}
     <div class="tabpane" id="pane-relationships">
@@ -113,7 +207,11 @@ async function load() {
         <td><a href="/entity?id=${r.to_id}">${esc(r.to_name)}</a></td>
         <td><span class="badge" style="background:var(--chip);color:var(--accent)">${esc(r.type)}</span></td>
         <td>${esc(r.evidence || "")}</td>
-        <td>${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(r.source)}</a>` : esc(r.source || "")}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+        <td>
+          ${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(r.source)}</a>` : esc(r.source || "")}
+          ${searchLink(r.from_name + ' ' + r.to_name + ' ' + r.type)}
+          ${editBtn('relationships', r.id, r.source)}
+        </td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>
     ${e.type === 'Politician' ? `
@@ -158,28 +256,44 @@ async function load() {
       <table class="data"><tr><th>Tender</th><th>Title</th><th>Buyer</th><th>Supplier</th><th>Value</th><th>Date</th><th>Source</th></tr>
       ${p.contracts.map(k => `<tr><td>${esc(k.tender_id)}</td><td>${esc(k.title)}</td>
         <td>${esc(k.buyer_name)}</td><td>${esc(k.supplier_name)}</td><td>${fmtCr(k.value)}</td>
-        <td>${esc(k.award_date)}</td><td>${k.source_url ? `<a href="${esc(k.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(k.source)}</a>` : esc(k.source)}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
+        <td>${esc(k.award_date)}</td><td>
+          ${k.source_url ? `<a href="${esc(k.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(k.source)}</a>` : esc(k.source || "")}
+          ${searchLink(k.supplier_name + ' ' + k.title + ' ' + k.tender_id)}
+          ${editBtn('contracts', k.id, k.source)}
+        </td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
     <div class="tabpane" id="pane-flows">
       <table class="data"><tr><th>Scheme</th><th>From</th><th>To</th><th>Amount</th><th>Date</th><th>Purpose</th><th>Source</th></tr>
       ${p.fund_flows.map(f => `<tr><td>${esc(f.scheme)}</td><td>${esc(f.from_name)}</td>
         <td>${esc(f.to_name)}</td><td>${fmtCr(f.amount)}</td><td>${esc(f.date)}</td><td>${esc(f.purpose)}</td>
-        <td>${f.source_url ? `<a href="${esc(f.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(f.source)}</a>` : esc(f.source || "")}</td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
+        <td>
+          ${f.source_url ? `<a href="${esc(f.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(f.source || "")}</a>` : esc(f.source || "")}
+          ${searchLink(f.from_name + ' ' + f.to_name + ' ' + f.scheme)}
+          ${editBtn('fund_flows', f.id, f.source)}
+        </td></tr>`).join("") || "<tr><td colspan=7>None</td></tr>"}
       </table>
     </div>
     ${e.type === 'Politician' ? `
     <div class="tabpane" id="pane-assets">
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Annual income</th><th>Source</th></tr>
       ${p.declarations.map(d => `<tr><td>${d.year}</td><td>${fmtCr(d.assets)}</td>
-        <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>${d.source_url ? `<a href="${esc(d.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(d.source)}</a>` : esc(d.source)}</td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
+        <td>${fmtCr(d.liabilities)}</td><td>${fmtCr(d.income)}</td><td>
+          ${d.source_url ? `<a href="${esc(d.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(d.source)}</a>` : esc(d.source || "")}
+          ${searchLink(e.name + ' assets ' + d.year)}
+          ${editBtn('declarations', d.id, d.source)}
+        </td></tr>`).join("") || "<tr><td colspan=5>None</td></tr>"}
       </table>
     </div>` : ''}
     ${e.type === 'Company' ? `
     <div class="tabpane" id="pane-financials">
       <table class="data"><tr><th>Year</th><th>Assets</th><th>Liabilities</th><th>Revenue</th><th>Net Profit</th><th>Source</th></tr>
       ${p.financials.map(fn => `<tr><td>${fn.year}</td><td>${fmtCr(fn.assets)}</td>
-        <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>${fn.source_url ? `<a href="${esc(fn.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(fn.source)}</a>` : esc(fn.source)}</td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
+        <td>${fmtCr(fn.liabilities)}</td><td>${fmtCr(fn.revenue)}</td><td>${fmtCr(fn.net_profit)}</td><td>
+          ${fn.source_url ? `<a href="${esc(fn.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(fn.source)}</a>` : esc(fn.source || "")}
+          ${searchLink(e.name + ' financials ' + fn.year)}
+          ${editBtn('company_financials', fn.id, fn.source)}
+        </td></tr>`).join("") || "<tr><td colspan=6>None</td></tr>"}
       </table>
     </div>` : ''}
 

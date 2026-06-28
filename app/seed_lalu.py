@@ -64,7 +64,7 @@ def main():
     # Verified Source URLs
     WIKI_URL = "https://en.wikipedia.org/wiki/Lalu_Prasad_Yadav"
     LAND_FOR_JOBS_URL = "https://www.ndtv.com/india-news/cbi-files-charge-sheet-against-lalu-yadav-77-others-in-land-for-job-case-4174828"
-    FODDER_SCAM_URL = "https://www.livelaw.in/news-updates/fodder-scam-cbi-court-sentences-lalu-prasad-yadav-to-5-years-imprisonment-doranda-treasury-case-192534"
+    FODDER_SCAM_URL = "https://en.wikipedia.org/wiki/Fodder_scam"
     
     # 1. Entities
     lalu = ent(c, "Lalu Prasad Yadav", "Politician", party="RJD", position="Former Union Railway Minister",
@@ -113,7 +113,7 @@ def main():
     rel(c, lalu, rabri, "Family_Link", "Spouse details in public declarations", WIKI_URL)
     rel(c, lalu, tejashwi, "Family_Link", "Family details", WIKI_URL)
     rel(c, lalu, misa, "Family_Link", "Family details", WIKI_URL)
-    rel(c, lalu, hema, "Family_Link", "Family details", LAND_FOR_JOBS_URL)
+    rel(c, lalu, hema, "Family_Link", "Family details", WIKI_URL)
     
     # Corporate links
     rel(c, rabri, ak_info, "Shareholder_Of", "Ownership transfer records", LAND_FOR_JOBS_URL)
