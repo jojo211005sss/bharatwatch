@@ -216,6 +216,7 @@ async function load() {
       <button data-t="flows">Fund flows (${p.fund_flows.length})</button>
       ${e.type === 'Politician' ? `<button data-t="assets">Assets (${p.declarations.length})</button>` : ''}
       ${e.type === 'Company' ? `<button data-t="financials">Financials (${p.financials.length})</button>` : ''}
+      ${e.type === 'Politician' ? `<button data-t="scams">Allegations & Scams ⚑</button>` : ''}
     </div>
 
     <div class="tabpane active" id="pane-timeline">
@@ -223,6 +224,41 @@ async function load() {
         <div class="ev"><div class="d">${esc(t.date)} · ${esc(t.kind)}${t.source ? ` · <span style="font-size:11px;color:var(--muted)">Source: ${t.source_url ? `<a href="${esc(t.source_url)}" target="_blank" style="text-decoration:underline;color:inherit">${esc(t.source)}</a>` : esc(t.source)}</span>` : ""}</div><div>${esc(t.text)}</div></div>`).join("") || "No events."}
       </div>
     </div>
+    
+    ${e.type === 'Politician' ? `
+    <div class="tabpane" id="pane-scams">
+      <div style="margin-top:10px">
+        <div class="card" style="margin-bottom:16px;background:var(--panel2);border-left:4px solid var(--danger)">
+          <h3 style="margin:0 0 8px 0">Baseline Corruption & Public Allegations Search</h3>
+          <p style="margin:0 0 12px 0;font-size:14px;color:var(--muted)">
+            Quick-search public databases and news engines for scams, fraud investigations, CBI/ED probes, or assets mismatch cases relating to <strong>${esc(e.name)}</strong>.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' scam OR fraud OR corruption OR CBI OR ED')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
+              🔍 Google: ${esc(e.name)} + Scam/Fraud
+            </a>
+            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' assets mismatch OR disproportionate assets')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
+              💰 Google: Assets Mismatch
+            </a>
+            <a href="https://www.google.com/search?q=${encodeURIComponent(e.name + ' electoral bonds donor OR recipient')}" target="_blank" class="ghost" style="display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;color:inherit;text-decoration:none">
+              🗳️ Google: Electoral Bonds
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 12px 0">Profile Legal & Investigation Log</h3>
+          ${e.notes ? `<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0">${esc(e.notes)}</p>` : `<p style="color:var(--muted);font-style:italic">No historical investigation logs or case profiles registered in the system notes.</p>`}
+          
+          <dl class="kv" style="font-size:14px;border-top:1px solid var(--line);padding-top:12px">
+            <dt>Declared Criminal Charges</dt>
+            <dd style="font-weight:700;color:${e.criminal_cases ? 'var(--danger)' : 'inherit'}">
+              ${e.criminal_cases} case(s) declared in ECI affidavits
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>` : ''}
     ${e.type === 'Politician' ? `
     <div class="tabpane" id="pane-tenures">
       <table class="data"><tr><th>Office</th><th>Start Date</th><th>End Date</th><th>Source</th></tr>
