@@ -567,23 +567,48 @@ def rule_policy_conflict(c, pol):
 
 def rule_scam_detection(c, pol):
     """Flag any contract linked to the politician's family network whose
-    title or description contains scam/fraud/irregularity keywords.
+    title or description contains scam/fraud/irregularity keywords, OR
+    flag historical scam investigations mentioned in entity notes or relationships.
     Per user directive: any scam counts, not just education-related."""
-    web = _family_web(c, pol["id"])
-    family_only = {k: v for k, v in web.items() if k != pol["id"]}
-    if not family_only:
-        return
-    companies = _companies_of(c, family_only.keys())
-    if not companies:
-        return
-
+    
     scam_keywords = [
         "scam", "fraud", "cheating", "misuse", "embezzlement",
         "irregularity", "siphon", "kickback", "bribe", "corruption",
         "laundering", "disproportionate", "benami", "bogus", "fake",
-        "shell", "hawala", "ponzi", "chit fund", "illegal",
+        "shell", "hawala", "ponzi", "chit fund", "illegal", "bribery",
+        "cbi raid", "ed investigation", "chargesheeted", "accused"
     ]
 
+    # 1. Check entity notes for scams
+    pol_notes = (pol["notes"] or "").lower()
+    matched_notes = [kw for kw in scam_keywords if kw in pol_notes]
+    
+    # 2. Check relationship evidence fields for scams
+    matched_rels = []
+    rows_rel = c.execute(
+        "SELECT r.*, e.name AS other_name FROM relationships r "
+        "JOIN entities e ON (e.id = r.to_id OR e.id = r.from_id) "
+        "WHERE (r.from_id = ? OR r.to_id = ?) AND e.id != ?",
+        (pol["id"], pol["id"], pol["id"])
+    ).fetchall()
+    
+    for r in rows_rel:
+        evidence_text = (r["evidence"] or "").lower()
+        matched_kw = [kw for kw in scam_keywords if kw in evidence_text]
+        if matched_kw:
+            matched_rels.append({
+                "relationship_type": r["type"],
+                "connected_entity": r["other_name"],
+                "evidence": r["evidence"],
+                "matched_keywords": matched_kw,
+                "source": r["source"]
+            })
+
+    # 3. Check contracts for scams
+    web = _family_web(c, pol["id"])
+    family_only = {k: v for k, v in web.items() if k != pol["id"]}
+    companies = _companies_of(c, family_only.keys()) if family_only else {}
+    
     items, total_val = [], 0
     for comp_id, (pid, ev) in companies.items():
         rows = c.execute(
@@ -607,22 +632,52 @@ def rule_scam_detection(c, pol):
                 "during_tenure": in_tenure,
             })
 
-    if not items:
+    if not items and not matched_notes and not matched_rels:
         return
 
-    score = _value_boost(total_val, base=45, per_log=20, cap=95)
-    if any(i["during_tenure"] for i in items):
-        score = min(97, score + 10)
+    # Compute risk score
+    score = 75  # Baseline score for documented scams
+    if items:
+        score = max(score, _value_boost(total_val, base=45, per_log=20, cap=95))
+        if any(i["during_tenure"] for i in items):
+            score = min(97, score + 10)
+    if matched_notes:
+        score = min(98, score + 15)
 
-    kw_summary = ", ".join(sorted({kw for i in items for kw in i["matched_keywords"]}))
+    evidence_summary = []
+    if matched_notes:
+        evidence_summary.append({
+            "type": "Entity Profile Notes",
+            "details": pol["notes"],
+            "matched_keywords": matched_notes
+        })
+    for r in matched_rels:
+        evidence_summary.append({
+            "type": f"Relationship ({r['relationship_type']})",
+            "details": f"Connected to {r['connected_entity']}: {r['evidence']}",
+            "matched_keywords": r["matched_keywords"],
+            "source": r["source"]
+        })
+    for i in items:
+        evidence_summary.append(i)
+
+    all_kws = set(matched_notes)
+    for r in matched_rels:
+        all_kws.update(r["matched_keywords"])
+    for i in items:
+        all_kws.update(i["matched_keywords"])
+        
+    kw_summary = ", ".join(sorted(all_kws))
+    
     explanation = (
-        f"Irregularity indicators detected: {len(items)} contract(s) worth {fmt_cr(total_val)} "
-        f"awarded to family-linked firms of {pol['name']} contain keywords related to fraud or cheating (keywords: {kw_summary}). "
-        f"This indicates that contracts awarded to the politician's family network are under active investigation or linked to public scams."
+        f"Public scam or fraud indicators detected for {pol['name']}. "
+        f"Historical investigations, chargesheets, or suspicious transaction indicators found (keywords: {kw_summary}). "
+        f"This indicates that the politician or their family-linked entities are connected to documented public scams."
     )
+    
     _add_flag(c, pol["id"], "SCAM_DETECTION", score,
-              f"Scam indicators in {len(items)} contracts ({fmt_cr(total_val)})",
-              explanation, total_val, items)
+              f"Public Scam & Irregularity Indicators (risk score {score}%)",
+              explanation, total_val, evidence_summary)
 
 
 def rule_media_capture(c, pol):
