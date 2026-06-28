@@ -643,7 +643,7 @@ class Handler(BaseHTTPRequestHandler):
                         {"title": "CBI chargesheets Bhupinder Singh Hooda in Manesar land scam case", "url": "https://www.ndtv.com/india-news/cbi-files-chargesheet-against-bhupinder-singh-hooda-in-manesar-land-scam-case-1807758", "source": "NDTV"}
                     ]
                 else:
-                    summary = f"No active background investigation reports or public scams logged for {esc(name)} in the baseline database. You can use the Google search options above to perform external audits."
+                    summary = f"No active background investigation reports or public scams logged for {name} in the baseline database. You can use the Google search options above to perform external audits."
                     refs = []
                 
                 return self._json({"ok": True, "summary": summary, "references": refs})
