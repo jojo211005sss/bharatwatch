@@ -642,6 +642,17 @@ class Handler(BaseHTTPRequestHandler):
                     refs = [
                         {"title": "CBI chargesheets Bhupinder Singh Hooda in Manesar land scam case", "url": "https://www.ndtv.com/india-news/cbi-files-chargesheet-against-bhupinder-singh-hooda-in-manesar-land-scam-case-1807758", "source": "NDTV"}
                     ]
+                elif "lalu" in name_lower:
+                    summary = (
+                        "Former Bihar Chief Minister Lalu Prasad Yadav has been convicted and chargesheeted in multiple historic and active corruption cases:<br><br>"
+                        "<strong>1. The Fodder Scam (Fodder allocation):</strong> Convicted in multiple cases by special CBI courts for the embezzlement of over Rs 940 crore from Bihar government treasuries. The scam involved fraudulent withdrawals for non-existent livestock fodder and equipment during the 1990s.<br>"
+                        "<strong>2. Land for Job Scam (Railways):</strong> Chargesheeted by the CBI/ED for allegedly providing Group-D jobs in the Indian Railways (during his tenure as Union Railway Minister from 2004-2009) in exchange for land parcels transferred to his family members at throwaway prices. In early 2026, a Delhi court formally framed charges in this case."
+                    )
+                    refs = [
+                        {"title": "What is the Fodder Scam? Cases and Convictions explained", "url": "https://en.wikipedia.org/wiki/Fodder_Scam", "source": "Wikipedia"},
+                        {"title": "Court frames charges against Lalu Prasad Yadav and family in Land for Job case", "url": "https://www.deccanherald.com/india/delhi-court-frames-charges-against-lalu-prasad-rabri-devi-in-land-for-jobs-case-3712109", "source": "Deccan Herald"},
+                        {"title": "Supreme Court refuses to quash CBI case in Land for Job scam", "url": "https://www.thehindu.com/news/national/supreme-court-allows-cbi-trial-against-lalu-prasad-yadav-in-land-for-job-case/article70012552.ece", "source": "The Hindu"}
+                    ]
                 else:
                     summary = f"No active background investigation reports or public scams logged for {name} in the baseline database. You can use the Google search options above to perform external audits."
                     refs = []
