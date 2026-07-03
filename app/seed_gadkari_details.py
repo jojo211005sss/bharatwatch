@@ -52,7 +52,7 @@ def main():
     gadkari_id = row["id"]
     
     cian_id = c.execute("SELECT id FROM entities WHERE name = 'CIAN Agro Industries & Infrastructure Limited'").fetchone()["id"]
-    irb_id = c.execute("SELECT id FROM entities WHERE name = 'Ideal Road Builders (IRB)'").fetchone()["id"]
+    irb_id = c.execute("SELECT id FROM entities WHERE name = 'IRB Infrastructure Developers Limited'").fetchone()["id"]
     nhai_id = c.execute("SELECT id FROM entities WHERE name = 'National Highways Authority of India (NHAI)'").fetchone()["id"]
     
     NEWS_URL = "https://www.ndtv.com/india-news/mca-initiates-discreet-probe-into-funding-of-nitin-gadkaris-purti-group-502901"

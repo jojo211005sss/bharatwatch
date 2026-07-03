@@ -59,6 +59,8 @@ def main():
     
     # Clean up existing Nitin Gadkari entities to allow re-seeding
     names = ["Nitin Gadkari", "Kanchan Gadkari", "Nikhil Gadkari", "Sarang Gadkari", "Ketki Kaskhedikar",
+             "Rutuja Pathak", "Madhura Gadkari", "Aditya Kaskhedikar",
+             "Jairam Ramchandra Gadkari", "Bhanutai Jairam Gadkari", "Manisha Kishor Totade", "Dilip Rodi", "Ravi Kaskhedikar",
              "CIAN Agro Industries & Infrastructure Limited", "Wainganga Sugar & Power Limited",
              "Manas Agro Industries & Infrastructure Limited", "GMT Mining And Power Private Limited",
              "Ideal Road Builders (IRB)", "IRB Infrastructure Developers Limited", "Manohar Panse", "Kawdu Zade", "Jasika Mercantile Private Limited",
@@ -89,6 +91,7 @@ def main():
     NHAI_TENDER_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
     ETHANOL_TENDER_URL = "https://www.ndtv.com/india-news/mca-initiates-discreet-probe-into-funding-of-nitin-gadkaris-purti-group-502901"
     WIKI_URL = "https://en.wikipedia.org/wiki/Nitin_Gadkari"
+    SISTER_URL = "https://www.thehindu.com/news/national/other-states/burglary-at-nitin-gadkaris-brotherinlaws-house/article7145781.ece"
     # Verified news articles documenting ethanol supply by Gadkari-linked companies
     ETHANOL_MANAS_URL = "https://www.deccanherald.com/india/conflict-of-interest-congress-alleges-gadkaris-sons-profited-from-ethanol-policy-demand-lokpal-probe-3712105"
     ETHANOL_WAINGANGA_URL = "https://www.thehindu.com/news/national/gadkari-lobbying-for-ethanol-blending-alleges-congress/article70012549.ece"
@@ -109,6 +112,21 @@ def main():
                   
     ketki = ent(c, "Ketki Kaskhedikar", "Person", state="Maharashtra",
                 notes="Daughter of Nitin Gadkari")
+                
+    rutuja = ent(c, "Rutuja Pathak", "Person", state="Maharashtra",
+                 notes="Spouse of Nikhil Gadkari (daughter-in-law of Nitin Gadkari)")
+                 
+    madhura = ent(c, "Madhura Gadkari", "Person", state="Maharashtra",
+                  notes="Spouse of Sarang Gadkari (daughter-in-law of Nitin Gadkari)")
+                  
+    aditya = ent(c, "Aditya Kaskhedikar", "Person", state="Maharashtra",
+                 notes="Spouse of Ketki Kaskhedikar (son-in-law of Nitin Gadkari)")
+                 
+    jairam = ent(c, "Jairam Ramchandra Gadkari", "Person", state="Maharashtra", notes="Father of Nitin Gadkari (deceased)")
+    bhanutai = ent(c, "Bhanutai Jairam Gadkari", "Person", state="Maharashtra", notes="Mother of Nitin Gadkari (deceased)")
+    manisha = ent(c, "Manisha Kishor Totade", "Person", state="Maharashtra", notes="Sister of Nitin Gadkari")
+    dilip = ent(c, "Dilip Rodi", "Person", state="Maharashtra", notes="Father of Madhura Gadkari (chartered accountant)")
+    ravi = ent(c, "Ravi Kaskhedikar", "Person", state="Maharashtra", notes="Father of Aditya Kaskhedikar (former insurance executive)")
                 
     cian = ent(c, "CIAN Agro Industries & Infrastructure Limited", "Company", cin="L15142MH1985PLC037493",
                state="Maharashtra", address="Nagpur, Maharashtra", incorporation_date="1985-09-12",
@@ -138,6 +156,22 @@ def main():
     rel(c, gadkari, nikhil, "Family_Link", "Son declared in public filings", WIKI_URL)
     rel(c, gadkari, sarang, "Family_Link", "Son declared in public filings", WIKI_URL)
     rel(c, gadkari, ketki, "Family_Link", "Daughter declared in public filings", WIKI_URL)
+    rel(c, gadkari, jairam, "Family_Link", "Father of Nitin Gadkari", WIKI_URL)
+    rel(c, gadkari, bhanutai, "Family_Link", "Mother of Nitin Gadkari", WIKI_URL)
+    rel(c, gadkari, manisha, "Family_Link", "Sister of Nitin Gadkari", SISTER_URL)
+    
+    # 2nd-degree relationships (spouses of sons/daughters)
+    NIKHIL_WEDDING_URL = "https://www.ndtv.com/india-news/prominent-leaders-attend-nitin-gadkaris-sons-wedding-442220"
+    SARANG_WEDDING_URL = "https://www.ndtv.com/india-news/nitin-gadkaris-son-sarang-marries-classmate-in-nagpur-488667"
+    KETKI_WEDDING_URL = "https://www.ndtv.com/india-news/nitin-gadkaris-daughter-gets-married-in-nagpur-vvips-attend-ceremony-1633758"
+
+    rel(c, nikhil, rutuja, "Family_Link", "Spouse of Nikhil Gadkari", NIKHIL_WEDDING_URL)
+    rel(c, sarang, madhura, "Family_Link", "Spouse of Sarang Gadkari", SARANG_WEDDING_URL)
+    rel(c, ketki, aditya, "Family_Link", "Spouse of Ketki Kaskhedikar", KETKI_WEDDING_URL)
+    
+    # 3rd-degree relationships (parents of spouses)
+    rel(c, madhura, dilip, "Family_Link", "Father of Madhura Gadkari", SARANG_WEDDING_URL)
+    rel(c, aditya, ravi, "Family_Link", "Father of Aditya Kaskhedikar", KETKI_WEDDING_URL)
     
     rel(c, nikhil, cian, "Director_Of", "DIN 00234754 appointed director", MCA_CIAN, "2012-05-15")
     rel(c, nikhil, wainganga, "Director_Of", "DIN 00234754 appointed director", MCA_WAINGANGA, "2010-09-10")

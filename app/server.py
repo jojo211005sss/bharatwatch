@@ -274,33 +274,47 @@ def entity_profile(eid):
             pan=r.get("from_pan") or r.get("to_pan")
         )
         
-    # Find all first-degree personal connections of eid (Family, Friends, Associates, etc.)
+    # Find all personal connections of eid up to 3rd degree (Family, Friends, Associates, etc.)
     personal_connections = {eid: {"name": e["name"], "rel_to_pol": "Self", "type": e["type"], "din": e.get("din"), "pan": e.get("pan"), "position": e.get("position"), "notes": e.get("notes")}}
-    personal_rel_types = {'family_link', 'friend_link', 'associate', 'spouse', 'son', 'daughter', 'child', 'parent', 'sibling', 'brother', 'sister', 'wife', 'husband', 'relative'}
+    personal_rel_types = {'family_link', 'friend_link', 'associate', 'spouse', 'son', 'daughter', 'child', 'parent', 'sibling', 'brother', 'sister', 'wife', 'husband', 'relative', 'spouse_of', 'sibling_of'}
     
-    rows = c.execute("""
-        SELECT r.from_id, r.to_id, r.type, r.evidence
-        FROM relationships r
-        WHERE r.from_id = ? OR r.to_id = ?
-    """, (eid, eid)).fetchall()
+    queue = [(eid, 0, "Self")]
+    visited = {eid}
     
-    for r in rows:
-        other_id = r["to_id"] if r["from_id"] == eid else r["from_id"]
-        oth = c.execute("SELECT * FROM entities WHERE id = ?", (other_id,)).fetchone()
-        if oth:
-            oth_type = oth["type"]
-            if oth_type in ("Person", "Politician") or r["type"].lower() in personal_rel_types:
-                rel_desc = humanize_relation_type(r["type"], r["evidence"])
-                personal_connections[other_id] = {
-                    "id": oth["id"],
-                    "name": oth["name"],
-                    "type": oth["type"],
-                    "din": oth["din"],
-                    "pan": oth["pan"],
-                    "position": oth["position"],
-                    "notes": oth["notes"],
-                    "rel_to_pol": rel_desc
-                }
+    while queue:
+        curr_id, depth, curr_desc = queue.pop(0)
+        if depth < 3:
+            rows = c.execute("""
+                SELECT r.from_id, r.to_id, r.type, r.evidence
+                FROM relationships r
+                WHERE r.from_id = ? OR r.to_id = ?
+            """, (curr_id, curr_id)).fetchall()
+            
+            for r in rows:
+                other_id = r["to_id"] if r["from_id"] == curr_id else r["from_id"]
+                if other_id not in visited:
+                    oth = c.execute("SELECT * FROM entities WHERE id = ?", (other_id,)).fetchone()
+                    if oth:
+                        oth_type = oth["type"]
+                        if oth_type in ("Person", "Politician") or r["type"].lower() in personal_rel_types:
+                            rel_desc = humanize_relation_type(r["type"], r["evidence"])
+                            if curr_id == eid:
+                                path_desc = rel_desc
+                            else:
+                                path_desc = f"{rel_desc} (via {curr_desc})"
+                            
+                            personal_connections[other_id] = {
+                                "id": oth["id"],
+                                "name": oth["name"],
+                                "type": oth["type"],
+                                "din": oth["din"],
+                                "pan": oth["pan"],
+                                "position": oth["position"],
+                                "notes": oth["notes"],
+                                "rel_to_pol": path_desc
+                            }
+                            visited.add(other_id)
+                            queue.append((other_id, depth + 1, path_desc))
 
     # Deeply search for details of the first-degree connections
     first_degree_connections = []

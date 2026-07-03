@@ -67,9 +67,9 @@ def main():
     c.execute(f"DELETE FROM entities WHERE name IN ({','.join('?'*len(names))})", names)
 
     # Exact verified source URLs
-    ECI_2021 = "https://www.myneta.info/WestBengal2021/candidate.php?candidate_id=1470"
+    ECI_2021 = "https://www.myneta.info/WestBengal2021/candidate.php?candidate_id=271"
     WIKI_URL = "https://en.wikipedia.org/wiki/Mamata_Banerjee"
-    SSC_SCAM_URL = "https://en.wikipedia.org/wiki/2022_West_Bengal_school_service_commission_recruitment_scam"
+    SSC_SCAM_URL = "https://en.wikipedia.org/wiki/2022_West_Bengal_School_Service_Commission_recruitment_scam"
 
     # 1. Entities
     mamata = ent(c, "Mamata Banerjee", "Politician", party="AITC", position="Chief Minister of West Bengal",

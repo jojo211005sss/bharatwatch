@@ -13,7 +13,7 @@
 <script>
 renderHeader("");
 const id = new URLSearchParams(location.search).get("id");
-let cy = null, depth = 2;
+let cy = null, depth = 2, familyOnly = false;
 
 function formatValue(key, val) {
   if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://"))) {
@@ -184,9 +184,13 @@ async function load() {
     </div>
 
     <h2 class="section-title">Relationship graph</h2>
-    <div class="graph-tools">
+    <div class="graph-tools" style="display:flex;align-items:center;width:100%">
       <span>Depth:</span>
-      ${[1, 2, 3].map(d => `<button class="ghost" data-d="${d}" onclick="setDepth(${d})">L${d}</button>`).join("")}
+      ${[1, 2, 3].map(d => `<button class="ghost ${d === depth ? 'active' : ''}" data-d="${d}" onclick="setDepth(${d})">L${d}</button>`).join("")}
+      <label style="margin-left:auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; cursor:pointer; color:var(--text)">
+        <input type="checkbox" id="familyOnlyToggle" onchange="toggleFamilyOnly(this.checked)" ${familyOnly ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px; margin:0"/>
+        Family Only
+      </label>
       <span class="legend">
         <i style="background:#c0392b"></i>Politician <i style="background:#b9770e"></i>Person
         <i style="background:#0b66c3"></i>Company <i style="background:#0a8f6c"></i>Govt body
@@ -395,13 +399,26 @@ async function drawGraph() {
     return;
   }
   const g = await api(`/api/graph/${id}?depth=${depth}`);
-  const elements = [
-    ...g.nodes.map(n => ({ data: { id: "n" + n.id, eid: n.id, label: n.label, type: n.type || "Unknown",
-                                   flagged: n.flagged ? 1 : 0, center: n.center ? 1 : 0 } })),
-    ...g.edges.map(e => ({ data: { id: e.id, source: "n" + e.source, target: "n" + e.target,
-                                   type: e.type, evidence: e.evidence || "", src: e.src || "",
-                                   value: e.value || 0 } })),
-  ];
+  
+  let edges = g.edges.map(e => ({ data: { id: e.id, source: "n" + e.source, target: "n" + e.target,
+                                         type: e.type, evidence: e.evidence || "", src: e.src || "",
+                                         value: e.value || 0 } }));
+                                         
+  let nodes = g.nodes.map(n => ({ data: { id: "n" + n.id, eid: n.id, label: n.label, type: n.type || "Unknown",
+                                         flagged: n.flagged ? 1 : 0, center: n.center ? 1 : 0 } }));
+                                         
+  if (familyOnly) {
+    edges = edges.filter(e => e.data.type === "Family_Link");
+    const connectedNodeIds = new Set();
+    connectedNodeIds.add("n" + id);
+    edges.forEach(e => {
+      connectedNodeIds.add(e.data.source);
+      connectedNodeIds.add(e.data.target);
+    });
+    nodes = nodes.filter(n => connectedNodeIds.has(n.data.id));
+  }
+  
+  const elements = [ ...nodes, ...edges ];
   if (cy) cy.destroy();
   cy = cytoscape({
     container: box, elements,
@@ -443,7 +460,25 @@ async function drawGraph() {
           "target-arrow-shape": "triangle",
           "line-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
           "target-arrow-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
-          label: "data(type)", 
+          label: (e) => {
+            const type = e.data("type");
+            const evidence = e.data("evidence");
+            if (type === "Family_Link" || type === "Friend_Link") {
+              if (evidence) {
+                const lower = evidence.toLowerCase();
+                if (lower.includes("spouse") || lower.includes("wife")) return `${type} (Spouse)`;
+                if (lower.includes("son")) return `${type} (Son)`;
+                if (lower.includes("daughter")) return `${type} (Daughter)`;
+                if (lower.includes("father")) return `${type} (Father)`;
+                if (lower.includes("mother")) return `${type} (Mother)`;
+                if (lower.includes("brother")) return `${type} (Brother)`;
+                if (lower.includes("sister")) return `${type} (Sister)`;
+                if (lower.includes("friend")) return `${type} (Friend)`;
+                if (evidence.length < 30) return `${type} (${evidence})`;
+              }
+            }
+            return type;
+          }, 
           "font-size": 9, 
           "text-rotation": "autorotate",
           color: getComputedStyle(document.body).color, 
@@ -482,7 +517,19 @@ async function drawGraph() {
   });
 }
 
-function setDepth(d) { depth = d; drawGraph(); }
+function setDepth(d) {
+  depth = d;
+  document.querySelectorAll(".graph-tools button[data-d]").forEach(btn => {
+    const dVal = parseInt(btn.dataset.d);
+    btn.classList.toggle("active", dVal === d);
+  });
+  drawGraph();
+}
+
+function toggleFamilyOnly(checked) {
+  familyOnly = checked;
+  drawGraph();
+}
 function exportPng() {
   if (!cy) return;
   const a = document.createElement("a");

@@ -117,7 +117,7 @@ table.data tr:hover td { background: var(--panel2); }
   background: var(--panel2); border: 1px solid var(--line); color: var(--muted);
   padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600;
 }
-.tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tabs button.active, .graph-tools button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .tabpane { display: none; } .tabpane.active { display: block; }
 
 .timeline { border-left: 2px solid var(--line); margin: 8px 0 0 8px; padding-left: 20px; }

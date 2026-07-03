@@ -68,9 +68,9 @@ def main():
     c.execute(f"DELETE FROM entities WHERE name IN ({','.join('?'*len(names))})", names)
 
     # Exact verified source URLs (no fabricated or homepage-only URLs where possible)
-    ECI_2021 = "https://www.myneta.info/Assam2021/candidate.php?candidate_id=314"
+    ECI_2021 = "https://www.myneta.info/Assam2021/candidate.php?candidate_id=1035"
     WIKI_URL = "https://en.wikipedia.org/wiki/Himanta_Biswa_Sarma"
-    PPE_CONTROVERSY_URL = "https://www.thewire.in/government/himanta-biswa-sarma-riniki-bhuyan-sarma-jcb-industries-ppe-kits-covid-19"
+    PPE_CONTROVERSY_URL = "https://thewire.in/government/companies-owned-by-assam-cm-himanta-biswa-sarmas-wife-business-associate-supplied-ppe-kits-urgent-orders"
 
     # 1. Entities
     sarma = ent(c, "Himanta Biswa Sarma", "Politician", party="BJP", position="Chief Minister of Assam",
