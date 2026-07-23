@@ -146,3 +146,27 @@ footer.site { max-width: 1180px; margin: 0 auto; padding: 18px 22px 40px; color:
   body { background: #fff; color: #000; }
   .tabpane { display: block !important; }
 }
+
+/* RTI Suggestion Styling */
+.copy-rti-btn {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+.copy-rti-btn:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+.copy-rti-btn:active {
+  transform: scale(0.97);
+}
+.rti-suggestion-box details summary {
+  list-style: none;
+  outline: none;
+}
+.rti-suggestion-box details summary::-webkit-details-marker {
+  display: none;
+}
+.rti-suggestion-box details[open] summary {
+  border-bottom: 1px dotted var(--line);
+  padding-bottom: 8px;
+}

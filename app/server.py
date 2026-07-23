@@ -256,8 +256,14 @@ def entity_profile(eid):
         
     flags = rows_to_dicts(c.execute(
         "SELECT * FROM flags WHERE entity_id=? ORDER BY risk_score DESC", (eid,)))
+    try:
+        from rti_generator import generate_rti_suggestion
+    except ImportError:
+        generate_rti_suggestion = lambda pat, ev, name: None
+
     for f in flags:
         f["evidence"] = json.loads(f["evidence"] or "[]")
+        f["rti_suggestion"] = generate_rti_suggestion(f["pattern"], f["evidence"], e["name"])
         
     rels = rows_to_dicts(c.execute("""
         SELECT r.*, a.name AS from_name, a.din AS from_din, a.pan AS from_pan, a.type AS from_type,
