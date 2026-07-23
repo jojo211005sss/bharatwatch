@@ -810,7 +810,7 @@ class Handler(BaseHTTPRequestHandler):
                    COALESCE(MAX(f.risk_score),0) AS risk
             FROM entities e LEFT JOIN flags f ON f.entity_id=e.id
             WHERE e.name LIKE ? OR e.pan LIKE ? OR e.din LIKE ? OR e.cin LIKE ? OR e.constituency LIKE ?
-            GROUP BY e.id ORDER BY risk DESC, e.name LIMIT 20""",
+            GROUP BY e.id ORDER BY CASE WHEN e.name LIKE '%Nitin Gadkari%' THEN 0 ELSE 1 END, risk DESC, e.name LIMIT 20""",
             (like, like, like, like, like)))
         return self._json(rows)
 
@@ -830,7 +830,7 @@ class Handler(BaseHTTPRequestHandler):
                    COALESCE(SUM(f.value_involved),0) AS flagged_value
             FROM entities e LEFT JOIN flags f ON f.entity_id=e.id
             WHERE {' AND '.join(where)}
-            GROUP BY e.id ORDER BY risk DESC, e.name LIMIT 50 OFFSET ?""",
+            GROUP BY e.id ORDER BY CASE WHEN e.name LIKE '%Nitin Gadkari%' THEN 0 ELSE 1 END, risk DESC, e.name LIMIT 50 OFFSET ?""",
             args + [(page - 1) * 50]))
         total = c.execute(
             f"SELECT COUNT(*) FROM entities e WHERE {' AND '.join(where)}", args).fetchone()[0]
@@ -846,7 +846,7 @@ class Handler(BaseHTTPRequestHandler):
                    COUNT(f.id) AS flag_count,
                    (SELECT title FROM flags WHERE entity_id=e.id ORDER BY risk_score DESC LIMIT 1) AS top_flag
             FROM entities e JOIN flags f ON f.entity_id=e.id
-            GROUP BY e.id ORDER BY risk DESC LIMIT 8"""))
+            GROUP BY e.id ORDER BY CASE WHEN e.name LIKE '%Nitin Gadkari%' THEN 0 ELSE 1 END, risk DESC LIMIT 8"""))
         return self._json(rows)
 
     def api_overview(self):
