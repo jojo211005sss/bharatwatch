@@ -4,22 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>National overview — BharatWatch</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v=3">
 </head>
 <body>
 <main>
-  <h1>National overview</h1>
-  <p style="color:var(--muted)">Aggregate red-flag exposure by state and by pattern type.</p>
+  <h1>National Risk Overview</h1>
+  <p style="color:var(--muted)">State-level concentration of flagged politicians and suspicious contract patterns.</p>
+  <div class="cards" style="margin-bottom:20px">
+    <div class="card"><div class="big" id="t-states">0</div><div class="label">States tracked</div></div>
+    <div class="card"><div class="big" id="t-pols">0</div><div class="label">Politicians flagged</div></div>
+    <div class="card"><div class="big" id="t-val">₹0 Cr</div><div class="label">Flagged contract value</div></div>
+  </div>
 
-  <h2 class="section-title">Flagged value by state</h2>
-  <div class="heat" id="heat"></div>
+  <h2 class="section-title">Risk concentration by state</h2>
+  <div class="heat" id="states"></div>
 
-  <h2 class="section-title">Patterns detected</h2>
-  <table class="data" id="patterns">
-    <tr><th>Pattern</th><th>What it means</th><th>Cases</th><th>Value involved</th></tr>
-  </table>
+  <h2 class="section-title">Most frequent red-flag patterns</h2>
+  <div class="heat" id="patterns"></div>
 </main>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 <script>
 renderHeader("/overview");
 const PATTERN_DESC = {
