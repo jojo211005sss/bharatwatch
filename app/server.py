@@ -33,7 +33,7 @@ MIME = {".html": "text/html", ".css": "text/css", ".js": "application/javascript
         ".ico": "image/x-icon"}
 
 PAGES = {"/": "index.html", "/entity": "entity.html", "/explore": "explore.html",
-         "/overview": "overview.html", "/about": "about.html", "/admin": "admin.html"}
+         "/overview": "overview.html", "/about": "about.html"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -567,6 +567,7 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(obj, default=str).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -576,6 +577,7 @@ class Handler(BaseHTTPRequestHandler):
             body = body.encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400")
         if filename:
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.send_header("Content-Length", str(len(body)))
@@ -588,7 +590,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "not found"}, 404)
         ext = os.path.splitext(path)[1]
         with open(path, "rb") as f:
-            self._raw(f.read(), MIME.get(ext, "application/octet-stream"))
+            data = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", MIME.get(ext, "application/octet-stream"))
+        self.send_header("Cache-Control", "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _authed(self):
         return self.headers.get("X-Admin-Token", "") in _tokens

@@ -19,7 +19,7 @@ function riskBadge(risk) {
 function renderHeader(active) {
   const nav = [
     ["/", "Dashboard"], ["/explore", "Explore"], ["/overview", "National Overview"],
-    ["/about", "About"], ["/admin", "Admin"],
+    ["/about", "About"]
   ];
   document.body.insertAdjacentHTML("afterbegin", `
     <header class="site">
