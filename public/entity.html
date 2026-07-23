@@ -17,13 +17,15 @@ let cy = null, depth = 2, familyOnly = false;
 
 function formatValue(key, val) {
   if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://"))) {
-    return `<a href="${val}" target="_blank" style="color:var(--accent);text-decoration:underline">${esc(val)}</a>
+    const disp = val.length > 36 ? val.substring(0, 33) + "..." : val;
+    return `<a href="${val}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${esc(disp)}</a>
             <a href="https://www.google.com/search?q=${encodeURIComponent(val)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
             <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(val)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
   }
   if (typeof val === "string" && val.includes("http")) {
     return val.replace(/(https?:\/\/[^\s\)]+)/g, (match) => {
-      return `<a href="${match}" target="_blank" style="color:var(--accent);text-decoration:underline">${match}</a>
+      const disp = match.length > 36 ? match.substring(0, 33) + "..." : match;
+      return `<a href="${match}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${disp}</a>
               <a href="https://www.google.com/search?q=${encodeURIComponent(match)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
               <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(match)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
     });
@@ -197,7 +199,15 @@ async function load() {
         <i style="background:#8e44ad"></i>Trust — ⚑ ring = flagged · click a node to drill down, click an edge for evidence
       </span>
     </div>
-    <div id="graph"></div>
+    <div id="graph-wrapper">
+      <button class="graph-fullscreen-btn" id="graphFullscreenBtn" onclick="toggleGraphFullscreen()" title="Full screen graph view">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+      <button class="graph-close-fullscreen-btn" id="graphCloseFullscreenBtn" onclick="toggleGraphFullscreen()" style="display:none" title="Exit full screen">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div id="graph"></div>
+    </div>
     <div class="notice" id="edgeInfo" style="display:none"></div>
 
     ${p.flags.length ? `<h2 class="section-title">Flagged insights</h2>` : ""}
@@ -553,6 +563,16 @@ function setDepth(d) {
 function toggleFamilyOnly(checked) {
   familyOnly = checked;
   drawGraph();
+}
+function toggleGraphFullscreen() {
+  const wrap = document.getElementById("graph-wrapper");
+  const isFS = wrap.classList.toggle("fullscreen");
+  document.getElementById("graphFullscreenBtn").style.display = isFS ? "none" : "flex";
+  document.getElementById("graphCloseFullscreenBtn").style.display = isFS ? "flex" : "none";
+  document.body.style.overflow = isFS ? "hidden" : "";
+  if (cy) {
+    setTimeout(() => { cy.resize(); cy.fit(); }, 150);
+  }
 }
 function exportPng() {
   if (!cy) return;

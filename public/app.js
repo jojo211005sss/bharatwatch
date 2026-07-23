@@ -18,8 +18,10 @@ function riskBadge(risk) {
 
 function renderHeader(active) {
   const nav = [
-    ["/", "Dashboard"], ["/explore", "Explore"], ["/overview", "National Overview"],
-    ["/about", "About"]
+    ["/", "Dashboard", `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`],
+    ["/explore", "Explore", `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`],
+    ["/overview", "Overview", `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`],
+    ["/about", "About", `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`]
   ];
   document.body.insertAdjacentHTML("afterbegin", `
     <header class="site">
@@ -28,7 +30,15 @@ function renderHeader(active) {
         `<a href="${h}" class="${h === active ? "active" : ""}">${l}</a>`).join("")}</nav>
       <div class="spacer"></div>
       <button class="ghost" id="themeBtn" title="Toggle dark/light mode">◐</button>
-    </header>`);
+    </header>
+    <nav class="mobile-bottom-nav">
+      ${nav.map(([h, l, svg]) => `
+        <a href="${h}" class="${h === active ? "active" : ""}">
+          ${svg}
+          <span>${l}</span>
+        </a>
+      `).join("")}
+    </nav>`);
   document.body.insertAdjacentHTML("beforeend", `
     <footer class="site">
       <strong>Disclaimer:</strong> For transparency and informational purposes only — not legal advice
