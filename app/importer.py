@@ -27,7 +27,10 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(APP_DIR)
+sys.path.insert(0, APP_DIR)
+sys.path.insert(0, ROOT_DIR)
 from db import get_db
 from resolve import find_entity, ai_adjudicate
 from verify_sources import PRIMARY_DOMAINS, SECONDARY_DOMAINS

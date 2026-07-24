@@ -18,6 +18,7 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(APP_DIR)
 PUBLIC = os.path.join(ROOT, "public")
 sys.path.insert(0, APP_DIR)
+sys.path.insert(0, ROOT)
 
 from db import init_db, get_db, rows_to_dicts
 from scoring import rescore
