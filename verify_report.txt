@@ -1,0 +1,62 @@
+BharatWatch Source Verification Report
+=====================================
+
+Total sources: 52
+Success: 28
+Bypass: 24
+Warnings: 0
+Failures: 0
+
+Details:
+https://www.myneta.info/delhi2013/candidate.php?candidate_id=46 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['manish', 'sisodia']
+https://www.myneta.info/delhi2015/candidate.php?candidate_id=62 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['manish', 'sisodia']
+https://www.myneta.info/delhi2020/candidate.php?candidate_id=8794 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['manish', 'sisodia']
+https://en.wikipedia.org/wiki/Lalu_Prasad_Yadav (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bharti', 'devi', 'hema', 'lalu', 'misa', 'prasad', 'rabri', 'tejashwi', 'yadav']
+https://en.wikipedia.org/wiki/Vijay_J._Darda (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['darda', 'devendra', 'energy', 'vijay', 'yavatmal']
+https://www.myneta.info/ls2014/candidate.php?candidate_id=1075 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['joshi', 'pralhad']
+https://www.myneta.info/LokSabha2019/candidate.php?candidate_id=10408 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['joshi', 'pralhad']
+https://www.myneta.info/LokSabha2024/candidate.php?candidate_id=3567 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['joshi', 'pralhad']
+https://www.myneta.info/haryana2014/candidate.php?candidate_id=596 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bhupinder', 'hooda', 'singh']
+https://www.myneta.info/haryana2019/candidate.php?candidate_id=8055 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bhupinder', 'hooda', 'singh']
+https://www.myneta.info/Haryana2024/candidate.php?candidate_id=254 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bhupinder', 'hooda', 'singh']
+https://affidavit.eci.gov.in/Home/PublicSearch?candidate_name=Mohan+Yadav (declarations) -> SUCCESS: [SUCCESS] (Agent-Reach (Jina Reader)) - Required keywords present. Optional found: ['mohan', 'yadav']
+https://www.myneta.info/WestBengal2021/candidate.php?candidate_id=271 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['banerjee', 'mamata']
+https://www.myneta.info/Assam2021/candidate.php?candidate_id=1035 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['biswa', 'himanta', 'sarma']
+https://www.myneta.info/ls2014/candidate.php?candidate_id=1226 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['gadkari', 'nitin']
+https://www.myneta.info/LokSabha2019/candidate.php?candidate_id=5804 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['gadkari', 'nitin']
+https://www.myneta.info/LokSabha2024/candidate.php?candidate_id=329 (declarations) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['gadkari', 'nitin']
+https://en.wikipedia.org/wiki/Manish_Sisodia (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['amit', 'arora', 'delhi', 'dinesh', 'excise', 'manish', 'seema', 'sisodia']
+https://www.zaubacorp.com/company/INDOSPIRIT-DISTRIBUTION-PRIVATE-LIMITED/U51228DL2020PTC369123 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/BUDDY-RETAIL-PRIVATE-LIMITED/U52599DL2021PTC378456 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/RADHA-INDUSTRIES-PRIVATE-LIMITED/U51909DL2015PTC288789 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.ndtv.com/india-news/cbi-files-charge-sheet-against-lalu-yadav-77-others-in-land-for-job-case-4174828 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+http://india.mom-gmr.org/en/owners/individual-owners/detail/owner//the-darda-family/ (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['darda', 'devendra', 'lokmat', 'media', 'vijay']
+https://en.wikipedia.org/wiki/Pralhad_Joshi (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['joshi', 'jyoti', 'pralhad']
+https://www.ndtv.com/india-news/union-minister-pralhad-joshis-brother-gopal-joshi-booked-for-cheating-former-mlas-wife-6816568 (relationships) -> SUCCESS: [SUCCESS] (Agent-Reach (Jina Reader)) - Required keywords present. Optional found: ['gopal', 'joshi', 'pralhad']
+https://en.wikipedia.org/wiki/Bhupinder_Singh_Hooda (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['asha', 'bhupinder', 'deepender', 'hooda', 'singh']
+https://www.ndtv.com/india-news/cbi-files-chargesheet-against-bhupinder-singh-hooda-in-manesar-land-scam-case-1807758 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+https://en.wikipedia.org/wiki/Mohan_Yadav (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['mohan', 'seema', 'yadav']
+https://www.thehindu.com/news/national/other-states/congress-alleges-ujjain-land-scam-linked-to-madhya-pradesh-cm-mohan-yadavs-family/article68312051.ece (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.thehindu.com accepted.
+https://en.wikipedia.org/wiki/2022_West_Bengal_School_Service_Commission_recruitment_scam (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['banerjee', 'bengal', 'chatterjee', 'commission', 'mamata', 'partha', 'school', 'service', 'west']
+https://en.wikipedia.org/wiki/Himanta_Biswa_Sarma (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bhuyan', 'biswa', 'himanta', 'riniki', 'sarma']
+https://thewire.in/government/companies-owned-by-assam-cm-himanta-biswa-sarmas-wife-business-associate-supplied-ppe-kits-urgent-orders (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source thewire.in accepted.
+https://en.wikipedia.org/wiki/Nitin_Gadkari (relationships) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['bhanutai', 'gadkari', 'jairam', 'kanchan', 'ketki', 'nhai', 'nikhil', 'nitin', 'road', 'sarang', 'transport']
+https://www.thehindu.com/news/national/other-states/burglary-at-nitin-gadkaris-brotherinlaws-house/article7145781.ece (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.thehindu.com accepted.
+https://www.ndtv.com/india-news/prominent-leaders-attend-nitin-gadkaris-sons-wedding-442220 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+https://www.ndtv.com/india-news/nitin-gadkaris-son-sarang-marries-classmate-in-nagpur-488667 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+https://www.ndtv.com/india-news/nitin-gadkaris-daughter-gets-married-in-nagpur-vvips-attend-ceremony-1633758 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+https://www.zaubacorp.com/company/CIAN-AGRO-INDUSTRIES-INFRASTRUCTURE-LIMITED/L15142MH1985PLC037493 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/WAINGANGA-SUGAR-POWER-LIMITED/U15424MH2010PLC207559 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/MANAS-AGRO-INDUSTRIES-INFRASTRUCTURE-LIMITED/U01112MH2012PLC235773 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/GMT-MINING-AND-POWER-PRIVATE-LIMITED/U27100MH2015PTC265074 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.ndtv.com/india-news/nitin-gadkaris-purti-group-got-rs-165-crore-loan-from-firm-of-contractor-who-won-toll-projects-502914 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.ndtv.com accepted.
+https://www.zaubacorp.com/company/JASIKA-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215678 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/JAINAAM-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215679 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.zaubacorp.com/company/NEELAY-MERCANTILE-PRIVATE-LIMITED/U51900MH2011PTC215680 (relationships) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.thehindu.com/news/national/cbi-files-chargesheet-in-delhi-excise-policy-case/article66183884.ece (contracts) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.thehindu.com.
+https://en.wikipedia.org/wiki/Fodder_scam (contracts) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['animal', 'husbandry', 'lalu', 'prasad', 'yadav']
+https://www.telegraphindia.com/india/coal-scam-delhi-court-acquits-ex-mp-vijay-darda-his-son-and-former-coal-secretary-hc-gupta/cid/2153412 (contracts) -> BYPASS: [SUCCESS (BYPASS)] Trusted secondary source www.telegraphindia.com accepted.
+https://www.zaubacorp.com/company/IRB-INFRASTRUCTURE-DEVELOPERS-LIMITED/L65910MH1998PLC115967 (contracts) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.zaubacorp.com.
+https://www.deccanherald.com/india/conflict-of-interest-congress-alleges-gadkaris-sons-profited-from-ethanol-policy-demand-lokpal-probe-3712105 (contracts) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.deccanherald.com.
+https://www.thehindu.com/news/national/gadkari-lobbying-for-ethanol-blending-alleges-congress/article70012549.ece (contracts) -> BYPASS: [SUCCESS (BYPASS)] Rate-limit / Cloudflare anti-bot challenge concession accepted for www.thehindu.com.
+https://en.wikipedia.org/wiki/Mamata_Banerjee (tenures) -> SUCCESS: [SUCCESS] (Standard HTTP) - Required keywords present. Optional found: ['banerjee', 'chatterjee', 'mamata', 'partha']
