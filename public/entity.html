@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,156 +8,163 @@
   <link rel="stylesheet" href="/static/app.css?v=3">
   <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 </head>
-<body>
-<main id="page"><p>Loading…</p></main>
-<script src="/static/app.js?v=3"></script>
-<script>
-renderHeader("");
-const id = new URLSearchParams(location.search).get("id");
-let cy = null, depth = 2, familyOnly = false;
 
-function formatValue(key, val) {
-  if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://"))) {
-    const disp = val.length > 36 ? val.substring(0, 33) + "..." : val;
-    return `<a href="${val}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${esc(disp)}</a>
+<body>
+  <main id="page">
+    <p>Loading…</p>
+  </main>
+  <script src="/static/app.js?v=3"></script>
+  <script>
+    renderHeader("");
+    const id = new URLSearchParams(location.search).get("id") || "612";
+    let cy = null, depth = 2, familyOnly = false;
+
+    function formatValue(key, val) {
+      if (typeof val === "string" && (val.startsWith("http://") || val.startsWith("https://"))) {
+        const disp = val.length > 36 ? val.substring(0, 33) + "..." : val;
+        return `<a href="${val}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${esc(disp)}</a>
             <a href="https://www.google.com/search?q=${encodeURIComponent(val)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
             <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(val)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
-  }
-  if (typeof val === "string" && val.includes("http")) {
-    return val.replace(/(https?:\/\/[^\s\)]+)/g, (match) => {
-      const disp = match.length > 36 ? match.substring(0, 33) + "..." : match;
-      return `<a href="${match}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${disp}</a>
+      }
+      if (typeof val === "string" && val.includes("http")) {
+        return val.replace(/(https?:\/\/[^\s\)]+)/g, (match) => {
+          const disp = match.length > 36 ? match.substring(0, 33) + "..." : match;
+          return `<a href="${match}" target="_blank" style="color:var(--accent);text-decoration:underline;word-break:break-all">${disp}</a>
               <a href="https://www.google.com/search?q=${encodeURIComponent(match)}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>
               <span class="edit-link-btn" onclick="triggerEditLinkByUrl(this)" data-source="${esc(match)}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
-    });
-  }
-  if (key.toLowerCase().includes("value") || key.toLowerCase().includes("assets") || key.toLowerCase().includes("liabilities") || key.toLowerCase().includes("income") || key.toLowerCase().includes("amount")) {
-    if (typeof val === "number") {
-      return fmtCr(val);
+        });
+      }
+      if (key.toLowerCase().includes("value") || key.toLowerCase().includes("assets") || key.toLowerCase().includes("liabilities") || key.toLowerCase().includes("income") || key.toLowerCase().includes("amount")) {
+        if (typeof val === "number") {
+          return fmtCr(val);
+        }
+      }
+      if (typeof val === "object" && val !== null) {
+        return `<div style="padding-left:10px">${Object.entries(val).map(([k, v]) => `<strong>${k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}:</strong> ${formatValue(k, v)}`).join("<br>")}</div>`;
+      }
+      return esc(val);
     }
-  }
-  if (typeof val === "object" && val !== null) {
-    return `<div style="padding-left:10px">${Object.entries(val).map(([k, v]) => `<strong>${k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}:</strong> ${formatValue(k, v)}`).join("<br>")}</div>`;
-  }
-  return esc(val);
-}
 
-function renderEvidenceList(evidence) {
-  return `<ul style="margin:8px 0;padding:0;font-size:13px;line-height:1.6">
+    function renderEvidenceList(evidence) {
+      return `<ul style="margin:8px 0;padding:0;font-size:13px;line-height:1.6">
     ${evidence.map(item => `
       <li style="margin-bottom:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;list-style:none;box-shadow:var(--shadow-sm)">
         ${Object.entries(item).map(([k, v]) => {
-          const label = k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-          return `<div style="margin-bottom:4px"><strong>${label}:</strong> ${formatValue(k, v)}</div>`;
-        }).join("")}
+        const label = k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        return `<div style="margin-bottom:4px"><strong>${label}:</strong> ${formatValue(k, v)}</div>`;
+      }).join("")}
       </li>
     `).join("")}
   </ul>`;
-}
+    }
 
-function searchLink(query) {
-  const url = "https://www.google.com/search?q=" + encodeURIComponent(query);
-  return `<a href="${url}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;user-select:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>`;
-}
+    function searchLink(query) {
+      const url = "https://www.google.com/search?q=" + encodeURIComponent(query);
+      return `<a href="${url}" target="_blank" class="verify-search-btn" style="margin-left:6px;font-size:11px;opacity:0.6;text-decoration:none;user-select:none;color:var(--accent)" title="Verify on Google Search">🔍 Search</a>`;
+    }
 
-function editBtn(table, id, currentSource) {
-  return `<span class="edit-link-btn" onclick="triggerEditLink(this)" data-table="${table}" data-id="${id}" data-source="${esc(currentSource || '')}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
-}
+    function editBtn(table, id, currentSource) {
+      return `<span class="edit-link-btn" onclick="triggerEditLink(this)" data-table="${table}" data-id="${id}" data-source="${esc(currentSource || '')}" style="cursor:pointer;margin-left:8px;font-size:11px;opacity:0.6;user-select:none;color:var(--accent2)" title="Edit source link">✏️ Edit</span>`;
+    }
 
-function sourceBadge(url, isDeep, table, id, source, searchQuery) {
-  const sBtn = searchQuery ? searchLink(searchQuery) : "";
-  const eBtn = editBtn(table, id, source);
-  
-  if (!url) {
-    return `<span style="font-size:11px;color:var(--muted)">No link</span> ${eBtn}`;
-  }
-  
-  const label = isDeep ? "↗ Direct" : "⚠️ Homepage Only";
-  const bg = isDeep ? "var(--success, #2ecc71)" : "var(--warn, #f39c12)";
-  const title = isDeep ? "Direct Link Verified" : "Homepage Only (Please search and edit)";
-  
-  return `
+    function sourceBadge(url, isDeep, table, id, source, searchQuery) {
+      const sBtn = searchQuery ? searchLink(searchQuery) : "";
+      const eBtn = editBtn(table, id, source);
+
+      if (!url) {
+        return `<span style="font-size:11px;color:var(--muted)">No link</span> ${eBtn}`;
+      }
+
+      const label = isDeep ? "↗ Direct" : "⚠️ Homepage Only";
+      const bg = isDeep ? "var(--success, #2ecc71)" : "var(--warn, #f39c12)";
+      const title = isDeep ? "Direct Link Verified" : "Homepage Only (Please search and edit)";
+
+      return `
     <span class="badge" style="background:${bg};color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px;vertical-align:middle;display:inline-block" title="${title}">${label}</span>
     <a href="${esc(url)}" target="_blank" style="text-decoration:underline;color:inherit;vertical-align:middle">${esc(source || url)}</a>
     ${sBtn}
     ${eBtn}
   `;
-}
-
-async function triggerEditLink(el) {
-  const table = el.dataset.table;
-  const id = el.dataset.id;
-  const currentSource = el.dataset.source;
-  
-  let hint = "";
-  if (table === "declarations") {
-    hint = "\nHint: Find this politician's asset declaration PDF on myneta.info or affidavit.eci.gov.in";
-  } else if (table === "contracts") {
-    hint = "\nHint: Find this procurement award record on eprocure.gov.in/cppp or bidplus.gem.gov.in or sppp.rajasthan.gov.in";
-  } else if (table === "relationships" || table === "company_financials") {
-    hint = "\nHint: Find this company/director registry details on mca.gov.in or zaubacorp.com or data.gov.in";
-  } else if (table === "tenures") {
-    hint = "\nHint: Find this member of parliament profile on sansad.in or state gazette portals";
-  } else if (table === "fund_flows") {
-    hint = "\nHint: Find this scheme disbursement record on pfms.nic.in or mplads.gov.in";
-  }
-  
-  const newSource = prompt(`Edit Source URL/proof for this ${table} record:${hint}`, currentSource);
-  if (newSource === null) return;
-  try {
-    const res = await api("/api/admin/edit-source", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Token": localStorage.getItem("bw-token") || "" },
-      body: JSON.stringify({ table, id: parseInt(id), new_source: newSource })
-    });
-    if (res.ok) {
-      alert("Source URL updated successfully! Refreshing page...");
-      location.reload();
-    } else {
-      alert("Error: " + (res.error || "Failed to update"));
     }
-  } catch (err) {
-    alert("Error updating link: " + err.message);
-  }
-}
 
-async function triggerEditLinkByUrl(el) {
-  const currentSource = el.dataset.source;
-  const newSource = prompt(`Edit this Source URL everywhere in the database:`, currentSource);
-  if (newSource === null) return;
-  try {
-    const res = await api("/api/admin/edit-source-by-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ current_source: currentSource, new_source: newSource })
-    });
-    if (res.ok) {
-      alert("Source URL updated successfully! Refreshing page...");
-      location.reload();
-    } else {
-      alert("Error: " + (res.error || "Failed to update"));
+    async function triggerEditLink(el) {
+      const table = el.dataset.table;
+      const id = el.dataset.id;
+      const currentSource = el.dataset.source;
+
+      let hint = "";
+      if (table === "declarations") {
+        hint = "\nHint: Find this politician's asset declaration PDF on myneta.info or affidavit.eci.gov.in";
+      } else if (table === "contracts") {
+        hint = "\nHint: Find this procurement award record on eprocure.gov.in/cppp or bidplus.gem.gov.in or sppp.rajasthan.gov.in";
+      } else if (table === "relationships" || table === "company_financials") {
+        hint = "\nHint: Find this company/director registry details on mca.gov.in or zaubacorp.com or data.gov.in";
+      } else if (table === "tenures") {
+        hint = "\nHint: Find this member of parliament profile on sansad.in or state gazette portals";
+      } else if (table === "fund_flows") {
+        hint = "\nHint: Find this scheme disbursement record on pfms.nic.in or mplads.gov.in";
+      }
+
+      const newSource = prompt(`Edit Source URL/proof for this ${table} record:${hint}`, currentSource);
+      if (newSource === null) return;
+      try {
+        const res = await api("/api/admin/edit-source", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Token": localStorage.getItem("bw-token") || "" },
+          body: JSON.stringify({ table, id: parseInt(id), new_source: newSource })
+        });
+        if (res.ok) {
+          alert("Source URL updated successfully! Refreshing page...");
+          location.reload();
+        } else {
+          alert("Error: " + (res.error || "Failed to update"));
+        }
+      } catch (err) {
+        alert("Error updating link: " + err.message);
+      }
     }
-  } catch (err) {
-    alert("Error updating link: " + err.message);
-  }
-}
 
-const NODE_COLORS = { Politician: "#c0392b", Person: "#b9770e", Company: "#0b66c3",
-                      GovtBody: "#0a8f6c", Trust: "#8e44ad", Unknown: "#7f8c8d" };
-const EDGE_COLORS = { Contract_Awarded_To: "#c0392b", Fund_Transfer: "#b9770e",
-                      Family_Link: "#8e44ad", Friend_Link: "#8e44ad", Associate: "#8e44ad", Close_Friend: "#8e44ad", Relative: "#8e44ad",
-                      Director_Of: "#0b66c3", Shareholder_Of: "#0b66c3", Works_At: "#0b66c3", Employee_Of: "#0b66c3", Partner_Of: "#0b66c3",
-                      Shared_Address: "#7f8c8d", Oversees: "#0a8f6c", Directs_Funds_To: "#0a8f6c" };
+    async function triggerEditLinkByUrl(el) {
+      const currentSource = el.dataset.source;
+      const newSource = prompt(`Edit this Source URL everywhere in the database:`, currentSource);
+      if (newSource === null) return;
+      try {
+        const res = await api("/api/admin/edit-source-by-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_source: currentSource, new_source: newSource })
+        });
+        if (res.ok) {
+          alert("Source URL updated successfully! Refreshing page...");
+          location.reload();
+        } else {
+          alert("Error: " + (res.error || "Failed to update"));
+        }
+      } catch (err) {
+        alert("Error updating link: " + err.message);
+      }
+    }
 
-async function load() {
-  let p;
-  try { p = await api("/api/entity/" + id); }
-  catch (e) { document.getElementById("page").innerHTML = "<p>Entity not found.</p>"; return; }
-  const e = p.entity;
-  const initials = e.name.split(/\s+/).map(w => w[0]).slice(0, 2).join("");
-  document.title = e.name + " — BharatWatch";
+    const NODE_COLORS = {
+      Politician: "#c0392b", Person: "#b9770e", Company: "#0b66c3",
+      GovtBody: "#0a8f6c", Trust: "#8e44ad", Unknown: "#7f8c8d"
+    };
+    const EDGE_COLORS = {
+      Contract_Awarded_To: "#c0392b", Fund_Transfer: "#b9770e",
+      Family_Link: "#8e44ad", Friend_Link: "#8e44ad", Associate: "#8e44ad", Close_Friend: "#8e44ad", Relative: "#8e44ad",
+      Director_Of: "#0b66c3", Shareholder_Of: "#0b66c3", Works_At: "#0b66c3", Employee_Of: "#0b66c3", Partner_Of: "#0b66c3",
+      Shared_Address: "#7f8c8d", Oversees: "#0a8f6c", Directs_Funds_To: "#0a8f6c"
+    };
 
-  document.getElementById("page").innerHTML = `
+    async function load() {
+      let p;
+      try { p = await api("/api/entity/" + id); }
+      catch (e) { document.getElementById("page").innerHTML = "<p>Entity not found.</p>"; return; }
+      const e = p.entity;
+      const initials = e.name.split(/\s+/).map(w => w[0]).slice(0, 2).join("");
+      document.title = e.name + " — BharatWatch";
+
+      document.getElementById("page").innerHTML = `
     <div class="card profile-head">
       <div class="avatar">${esc(initials)}</div>
       <div>
@@ -418,217 +426,234 @@ async function load() {
     </div>` : ""}
     `;
 
-  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
-    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x === b));
-    document.querySelectorAll(".tabpane").forEach(x =>
-      x.classList.toggle("active", x.id === "pane-" + b.dataset.t));
-  });
-  drawGraph();
-}
+      document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+        document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x === b));
+        document.querySelectorAll(".tabpane").forEach(x =>
+          x.classList.toggle("active", x.id === "pane-" + b.dataset.t));
+      });
+      drawGraph();
+    }
 
-async function drawGraph() {
-  const box = document.getElementById("graph");
-  if (typeof cytoscape === "undefined") {
-    box.innerHTML = "<p style='padding:20px'>Graph library could not load (offline?). Use the Linked Data tabs below.</p>";
-    return;
-  }
-  const g = await api(`/api/graph/${id}?depth=${depth}`);
-  
-  let edges = g.edges.map(e => ({ data: { id: e.id, source: "n" + e.source, target: "n" + e.target,
-                                         type: e.type, evidence: e.evidence || "", src: e.src || "",
-                                         value: e.value || 0 } }));
-                                         
-  let nodes = g.nodes.map(n => ({ data: { id: "n" + n.id, eid: n.id, label: n.label, type: n.type || "Unknown",
-                                         flagged: n.flagged ? 1 : 0, center: n.center ? 1 : 0 } }));
-                                         
-  if (familyOnly) {
-    edges = edges.filter(e => e.data.type === "Family_Link");
-    const connectedNodeIds = new Set();
-    connectedNodeIds.add("n" + id);
-    edges.forEach(e => {
-      connectedNodeIds.add(e.data.source);
-      connectedNodeIds.add(e.data.target);
-    });
-    nodes = nodes.filter(n => connectedNodeIds.has(n.data.id));
-  }
-  
-  const elements = [ ...nodes, ...edges ];
-  if (cy) cy.destroy();
-  cy = cytoscape({
-    container: box, elements,
-    style: [
-      { selector: "node", style: {
-          label: "data(label)", 
-          "font-size": 12, 
-          color: getComputedStyle(document.body).color,
-          "text-wrap": "wrap", 
-          "text-max-width": 130, 
-          "text-valign": "bottom", 
-          "text-margin-y": 8,
-          width: 32, 
-          height: 32,
-          shape: (n) => n.data("type") === "Politician" ? "ellipse" : n.data("type") === "Company" ? "rectangle" : "round-rectangle",
-          "background-color": (n) => NODE_COLORS[n.data("type")] || NODE_COLORS.Unknown,
-          "border-width": 1,
-          "border-color": "#ffffff",
-          "text-background-color": getComputedStyle(document.body).backgroundColor || "#f6f7f9",
-          "text-background-opacity": 0.8,
-          "text-background-padding": 3,
-          "text-background-shape": "roundrectangle"
-      } },
-      { selector: "node[center = 1]", style: { 
-          width: 50, 
-          height: 50, 
-          "border-width": 4, 
-          "border-color": "#f1c40f",
-          "font-weight": "bold"
-      } },
-      { selector: "node[flagged = 1]", style: { 
-          "border-width": 3, 
-          "border-color": "#e74c3c", 
-          "border-style": "solid" 
-      } },
-      { selector: "edge", style: {
-          width: (e) => Math.min(2.0 + (e.data("value") || 0) / 5e7, 8),
-          "curve-style": "bezier", 
-          "target-arrow-shape": "triangle",
-          "line-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
-          "target-arrow-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
-          label: (e) => {
-            const type = e.data("type");
-            const evidence = e.data("evidence");
-            if (type === "Family_Link" || type === "Friend_Link") {
-              if (evidence) {
-                const lower = evidence.toLowerCase();
-                if (lower.includes("spouse") || lower.includes("wife")) return `${type} (Spouse)`;
-                if (lower.includes("son")) return `${type} (Son)`;
-                if (lower.includes("daughter")) return `${type} (Daughter)`;
-                if (lower.includes("father")) return `${type} (Father)`;
-                if (lower.includes("mother")) return `${type} (Mother)`;
-                if (lower.includes("brother")) return `${type} (Brother)`;
-                if (lower.includes("sister")) return `${type} (Sister)`;
-                if (lower.includes("friend")) return `${type} (Friend)`;
-                if (evidence.length < 30) return `${type} (${evidence})`;
-              }
+    async function drawGraph() {
+      const box = document.getElementById("graph");
+      if (typeof cytoscape === "undefined") {
+        box.innerHTML = "<p style='padding:20px'>Graph library could not load (offline?). Use the Linked Data tabs below.</p>";
+        return;
+      }
+      const g = await api(`/api/graph/${id}?depth=${depth}`);
+
+      let edges = g.edges.map(e => ({
+        data: {
+          id: e.id, source: "n" + e.source, target: "n" + e.target,
+          type: e.type, evidence: e.evidence || "", src: e.src || "",
+          value: e.value || 0
+        }
+      }));
+
+      let nodes = g.nodes.map(n => ({
+        data: {
+          id: "n" + n.id, eid: n.id, label: n.label, type: n.type || "Unknown",
+          flagged: n.flagged ? 1 : 0, center: n.center ? 1 : 0
+        }
+      }));
+
+      if (familyOnly) {
+        edges = edges.filter(e => e.data.type === "Family_Link");
+        const connectedNodeIds = new Set();
+        connectedNodeIds.add("n" + id);
+        edges.forEach(e => {
+          connectedNodeIds.add(e.data.source);
+          connectedNodeIds.add(e.data.target);
+        });
+        nodes = nodes.filter(n => connectedNodeIds.has(n.data.id));
+      }
+
+      const elements = [...nodes, ...edges];
+      if (cy) cy.destroy();
+      cy = cytoscape({
+        container: box, elements,
+        style: [
+          {
+            selector: "node", style: {
+              label: "data(label)",
+              "font-size": 12,
+              color: getComputedStyle(document.body).color,
+              "text-wrap": "wrap",
+              "text-max-width": 130,
+              "text-valign": "bottom",
+              "text-margin-y": 8,
+              width: 32,
+              height: 32,
+              shape: (n) => n.data("type") === "Politician" ? "ellipse" : n.data("type") === "Company" ? "rectangle" : "round-rectangle",
+              "background-color": (n) => NODE_COLORS[n.data("type")] || NODE_COLORS.Unknown,
+              "border-width": 1,
+              "border-color": "#ffffff",
+              "text-background-color": getComputedStyle(document.body).backgroundColor || "#f6f7f9",
+              "text-background-opacity": 0.8,
+              "text-background-padding": 3,
+              "text-background-shape": "roundrectangle"
             }
-            return type;
-          }, 
-          "font-size": 9, 
-          "text-rotation": "autorotate",
-          color: getComputedStyle(document.body).color, 
-          "text-background-opacity": 0.95,
-          "text-background-color": getComputedStyle(document.body).backgroundColor || "#f6f7f9",
-          "text-background-padding": 2,
-          "text-background-shape": "roundrectangle"
-      } },
-    ],
-    layout: { 
-      name: "cose", 
-      animate: true, 
-      animationDuration: 800,
-      refresh: 20,
-      fit: true,
-      padding: 50, 
-      nodeRepulsion: 8000000,
-      idealEdgeLength: 160, 
-      nodeOverlap: 40,
-      gravity: 80,
-      numIter: 1000,
-      initialTemp: 200,
-      coolingFactor: 0.95
-    },
-  });
-  cy.on("tap", "node", (ev) => {
-    const eid = ev.target.data("eid");
-    if (eid && eid != id) location.href = "/entity?id=" + eid;
-  });
-  cy.on("tap", "edge", (ev) => {
-    const d = ev.target.data();
-    const info = document.getElementById("edgeInfo");
-    info.style.display = "block";
-    info.innerHTML = `<strong>${esc(d.type)}</strong>${d.value ? " · " + fmtCr(d.value) : ""}<br>
+          },
+          {
+            selector: "node[center = 1]", style: {
+              width: 50,
+              height: 50,
+              "border-width": 4,
+              "border-color": "#f1c40f",
+              "font-weight": "bold"
+            }
+          },
+          {
+            selector: "node[flagged = 1]", style: {
+              "border-width": 3,
+              "border-color": "#e74c3c",
+              "border-style": "solid"
+            }
+          },
+          {
+            selector: "edge", style: {
+              width: (e) => Math.min(2.0 + (e.data("value") || 0) / 5e7, 8),
+              "curve-style": "bezier",
+              "target-arrow-shape": "triangle",
+              "line-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
+              "target-arrow-color": (e) => EDGE_COLORS[e.data("type")] || "#95a5a6",
+              label: (e) => {
+                const type = e.data("type");
+                const evidence = e.data("evidence");
+                if (type === "Family_Link" || type === "Friend_Link") {
+                  if (evidence) {
+                    const lower = evidence.toLowerCase();
+                    if (lower.includes("spouse") || lower.includes("wife")) return `${type} (Spouse)`;
+                    if (lower.includes("son")) return `${type} (Son)`;
+                    if (lower.includes("daughter")) return `${type} (Daughter)`;
+                    if (lower.includes("father")) return `${type} (Father)`;
+                    if (lower.includes("mother")) return `${type} (Mother)`;
+                    if (lower.includes("brother")) return `${type} (Brother)`;
+                    if (lower.includes("sister")) return `${type} (Sister)`;
+                    if (lower.includes("friend")) return `${type} (Friend)`;
+                    if (evidence.length < 30) return `${type} (${evidence})`;
+                  }
+                }
+                return type;
+              },
+              "font-size": 9,
+              "text-rotation": "autorotate",
+              color: getComputedStyle(document.body).color,
+              "text-background-opacity": 0.95,
+              "text-background-color": getComputedStyle(document.body).backgroundColor || "#f6f7f9",
+              "text-background-padding": 2,
+              "text-background-shape": "roundrectangle"
+            }
+          },
+        ],
+        layout: {
+          name: "cose",
+          animate: true,
+          animationDuration: 800,
+          refresh: 20,
+          fit: true,
+          padding: 50,
+          nodeRepulsion: 8000000,
+          idealEdgeLength: 160,
+          nodeOverlap: 40,
+          gravity: 80,
+          numIter: 1000,
+          initialTemp: 200,
+          coolingFactor: 0.95
+        },
+      });
+      cy.on("tap", "node", (ev) => {
+        const eid = ev.target.data("eid");
+        if (eid && eid != id) location.href = "/entity?id=" + eid;
+      });
+      cy.on("tap", "edge", (ev) => {
+        const d = ev.target.data();
+        const info = document.getElementById("edgeInfo");
+        info.style.display = "block";
+        info.innerHTML = `<strong>${esc(d.type)}</strong>${d.value ? " · " + fmtCr(d.value) : ""}<br>
       ${esc(d.evidence)}<br><span style="color:var(--muted)">Source: ${esc(d.src)}</span>`;
-  });
-}
+      });
+    }
 
-function setDepth(d) {
-  depth = d;
-  document.querySelectorAll(".graph-tools button[data-d]").forEach(btn => {
-    const dVal = parseInt(btn.dataset.d);
-    btn.classList.toggle("active", dVal === d);
-  });
-  drawGraph();
-}
+    function setDepth(d) {
+      depth = d;
+      document.querySelectorAll(".graph-tools button[data-d]").forEach(btn => {
+        const dVal = parseInt(btn.dataset.d);
+        btn.classList.toggle("active", dVal === d);
+      });
+      drawGraph();
+    }
 
-function toggleFamilyOnly(checked) {
-  familyOnly = checked;
-  drawGraph();
-}
-function toggleGraphFullscreen() {
-  const wrap = document.getElementById("graph-wrapper");
-  const isFS = wrap.classList.toggle("fullscreen");
-  document.getElementById("graphFullscreenBtn").style.display = isFS ? "none" : "flex";
-  document.getElementById("graphCloseFullscreenBtn").style.display = isFS ? "flex" : "none";
-  document.body.style.overflow = isFS ? "hidden" : "";
-  if (cy) {
-    setTimeout(() => { cy.resize(); cy.fit(); }, 150);
-  }
-}
-function exportPng() {
-  if (!cy) return;
-  const a = document.createElement("a");
-  a.href = cy.png({ full: true, scale: 2, bg: getComputedStyle(document.body).backgroundColor });
-  a.download = "bharatwatch_graph.png";
-  a.click();
-}
-function copyRti(btn) {
-  const box = btn.closest(".rti-suggestion-box");
-  const auth = box.querySelector(".rti-authority").innerText;
-  const queries = box.querySelector(".rti-text").innerText;
-  const fullText = `Target Public Authority:\n${auth}\n\nDraft RTI Application Queries:\n${queries}`;
-  navigator.clipboard.writeText(fullText).then(() => {
-    const originalText = btn.innerText;
-    btn.innerText = "Copied!";
-    btn.style.background = "var(--success)";
-    btn.style.color = "#fff";
-    setTimeout(() => {
-      btn.innerText = originalText;
-      btn.style.background = "";
-      btn.style.color = "";
-    }, 2000);
-  }).catch(err => {
-    alert("Failed to copy: " + err);
-  });
-}
-async function triggerScamScan() {
-  const box = document.getElementById("scamResult");
-  const txt = document.getElementById("scamText");
-  const refs = document.getElementById("scamRefs");
-  
-  box.style.display = "block";
-  txt.innerHTML = "<em>Scraping public news databases and verifying allegations. Please wait, this takes a few seconds...</em>";
-  refs.innerHTML = "";
-  
-  try {
-    const res = await api(`/api/entity/scam-scan?id=${id}`);
-    if (res.ok) {
-      txt.innerHTML = res.summary;
-      if (res.references && res.references.length) {
-        refs.innerHTML = res.references.map(r => `
+    function toggleFamilyOnly(checked) {
+      familyOnly = checked;
+      drawGraph();
+    }
+    function toggleGraphFullscreen() {
+      const wrap = document.getElementById("graph-wrapper");
+      const isFS = wrap.classList.toggle("fullscreen");
+      document.getElementById("graphFullscreenBtn").style.display = isFS ? "none" : "flex";
+      document.getElementById("graphCloseFullscreenBtn").style.display = isFS ? "flex" : "none";
+      document.body.style.overflow = isFS ? "hidden" : "";
+      if (cy) {
+        setTimeout(() => { cy.resize(); cy.fit(); }, 150);
+      }
+    }
+    function exportPng() {
+      if (!cy) return;
+      const a = document.createElement("a");
+      a.href = cy.png({ full: true, scale: 2, bg: getComputedStyle(document.body).backgroundColor });
+      a.download = "bharatwatch_graph.png";
+      a.click();
+    }
+    function copyRti(btn) {
+      const box = btn.closest(".rti-suggestion-box");
+      const auth = box.querySelector(".rti-authority").innerText;
+      const queries = box.querySelector(".rti-text").innerText;
+      const fullText = `Target Public Authority:\n${auth}\n\nDraft RTI Application Queries:\n${queries}`;
+      navigator.clipboard.writeText(fullText).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "Copied!";
+        btn.style.background = "var(--success)";
+        btn.style.color = "#fff";
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.background = "";
+          btn.style.color = "";
+        }, 2000);
+      }).catch(err => {
+        alert("Failed to copy: " + err);
+      });
+    }
+    async function triggerScamScan() {
+      const box = document.getElementById("scamResult");
+      const txt = document.getElementById("scamText");
+      const refs = document.getElementById("scamRefs");
+
+      box.style.display = "block";
+      txt.innerHTML = "<em>Scraping public news databases and verifying allegations. Please wait, this takes a few seconds...</em>";
+      refs.innerHTML = "";
+
+      try {
+        const res = await api(`/api/entity/scam-scan?id=${id}`);
+        if (res.ok) {
+          txt.innerHTML = res.summary;
+          if (res.references && res.references.length) {
+            refs.innerHTML = res.references.map(r => `
           <li><a href="${esc(r.url)}" target="_blank" style="color:var(--accent);text-decoration:underline">${esc(r.title)}</a> (${esc(r.source)})</li>
         `).join("");
-      } else {
-        refs.innerHTML = "<li>No direct articles indexed.</li>";
+          } else {
+            refs.innerHTML = "<li>No direct articles indexed.</li>";
+          }
+        } else {
+          txt.innerHTML = `<span style="color:var(--danger)">Error: ${esc(res.error || "Failed to scan.")}</span>`;
+        }
+      } catch (err) {
+        txt.innerHTML = `<span style="color:var(--danger)">Scan failed: ${esc(err.message)}</span>`;
       }
-    } else {
-      txt.innerHTML = `<span style="color:var(--danger)">Error: ${esc(res.error || "Failed to scan.")}</span>`;
     }
-  } catch (err) {
-    txt.innerHTML = `<span style="color:var(--danger)">Scan failed: ${esc(err.message)}</span>`;
-  }
-}
 
-load();
-</script>
+    load();
+  </script>
 </body>
+
 </html>

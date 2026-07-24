@@ -33,7 +33,11 @@
 <script src="/static/app.js"></script>
 <script>
 renderHeader("/");
-attachSearch(document.getElementById("q"), document.getElementById("qres"));
+const qInput = document.getElementById("q");
+if (!isApproved()) {
+  qInput.placeholder = "Search Nitin Gadkari, family firms, contracts... (Turn ON Approved toggle for all cases)";
+}
+attachSearch(qInput, document.getElementById("qres"));
 
 (async () => {
   const s = await api("/api/stats");

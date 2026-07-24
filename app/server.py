@@ -554,6 +554,23 @@ def entity_profile(eid):
             "first_degree_connections": first_degree_connections}
 
 
+_gadkari_network_cache = None
+
+def get_gadkari_network_ids():
+    global _gadkari_network_cache
+    if _gadkari_network_cache is not None:
+        return _gadkari_network_cache
+    c = get_db().cursor()
+    r = c.execute("SELECT id FROM entities WHERE name LIKE '%Nitin Gadkari%' LIMIT 1").fetchone()
+    if not r:
+        _gadkari_network_cache = set()
+        return _gadkari_network_cache
+    gadkari_id = r[0]
+    g = graph_for(gadkari_id, depth=3)
+    _gadkari_network_cache = set(n["id"] for n in g["nodes"])
+    return _gadkari_network_cache
+
+
 # ---------------------------------------------------------------- handler
 
 class Handler(BaseHTTPRequestHandler):
@@ -561,6 +578,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+
+    def _is_approved(self, q):
+        val = q.get("approved", [""])[0].lower()
+        return val in ("1", "true")
 
     # -- responses
     def _json(self, obj, code=200):
@@ -616,15 +637,15 @@ class Handler(BaseHTTPRequestHandler):
             if p.startswith("/static/"):
                 return self._file(p[len("/static/"):])
             if p == "/api/stats":
-                return self.api_stats()
+                return self.api_stats(q)
             if p == "/api/search":
                 return self.api_search(q)
             if p == "/api/entities":
                 return self.api_entities(q)
             if p == "/api/highrisk":
-                return self.api_highrisk()
+                return self.api_highrisk(q)
             if p == "/api/overview":
-                return self.api_overview()
+                return self.api_overview(q)
             if p == "/api/entity/scam-scan":
                 eid_list = q.get("id", [""])
                 if not eid_list or not eid_list[0]:
@@ -785,9 +806,22 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": str(e)}, 500)
 
     # -- API implementations
-    def api_stats(self):
+    def api_stats(self, q):
         c = get_db().cursor()
         g = lambda sql, *a: c.execute(sql, a).fetchone()[0]
+        if not self._is_approved(q):
+            g_ids = get_gadkari_network_ids()
+            q_str = ",".join(str(i) for i in g_ids) if g_ids else "0"
+            return self._json({
+                "entities": g(f"SELECT COUNT(*) FROM entities WHERE id IN ({q_str})"),
+                "politicians": g(f"SELECT COUNT(*) FROM entities WHERE type='Politician' AND id IN ({q_str})"),
+                "companies": g(f"SELECT COUNT(*) FROM entities WHERE type='Company' AND id IN ({q_str})"),
+                "contracts": g(f"SELECT COUNT(*) FROM contracts WHERE supplier_id IN ({q_str}) OR buyer_id IN ({q_str})"),
+                "contract_value": g(f"SELECT COALESCE(SUM(value),0) FROM contracts WHERE supplier_id IN ({q_str}) OR buyer_id IN ({q_str})"),
+                "relationships": g(f"SELECT COUNT(*) FROM relationships WHERE from_id IN ({q_str}) OR to_id IN ({q_str})"),
+                "flags": g(f"SELECT COUNT(*) FROM flags WHERE entity_id IN ({q_str})"),
+                "flagged_value": g(f"SELECT COALESCE(SUM(value_involved),0) FROM flags WHERE entity_id IN ({q_str})"),
+            })
         return self._json({
             "entities": g("SELECT COUNT(*) FROM entities"),
             "politicians": g("SELECT COUNT(*) FROM entities WHERE type='Politician'"),
@@ -805,11 +839,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json([])
         c = get_db().cursor()
         like = f"%{term}%"
-        rows = rows_to_dicts(c.execute("""
+        approved_filter = ""
+        if not self._is_approved(q):
+            g_ids = get_gadkari_network_ids()
+            q_str = ",".join(str(i) for i in g_ids) if g_ids else "0"
+            approved_filter = f" AND e.id IN ({q_str})"
+
+        rows = rows_to_dicts(c.execute(f"""
             SELECT e.id, e.name, e.type, e.party, e.constituency, e.state,
                    COALESCE(MAX(f.risk_score),0) AS risk
             FROM entities e LEFT JOIN flags f ON f.entity_id=e.id
-            WHERE e.name LIKE ? OR e.pan LIKE ? OR e.din LIKE ? OR e.cin LIKE ? OR e.constituency LIKE ?
+            WHERE (e.name LIKE ? OR e.pan LIKE ? OR e.din LIKE ? OR e.cin LIKE ? OR e.constituency LIKE ?){approved_filter}
             GROUP BY e.id ORDER BY CASE WHEN e.name LIKE '%Nitin Gadkari%' THEN 0 ELSE 1 END, risk DESC, e.name LIMIT 20""",
             (like, like, like, like, like)))
         return self._json(rows)
@@ -817,6 +857,11 @@ class Handler(BaseHTTPRequestHandler):
     def api_entities(self, q):
         c = get_db().cursor()
         where, args = ["1=1"], []
+        if not self._is_approved(q):
+            g_ids = get_gadkari_network_ids()
+            q_str = ",".join(str(i) for i in g_ids) if g_ids else "0"
+            where.append(f"e.id IN ({q_str})")
+
         if q.get("type", [""])[0]:
             where.append("e.type=?"); args.append(q["type"][0])
         if q.get("state", [""])[0]:
@@ -835,34 +880,49 @@ class Handler(BaseHTTPRequestHandler):
         total = c.execute(
             f"SELECT COUNT(*) FROM entities e WHERE {' AND '.join(where)}", args).fetchone()[0]
         states = [r[0] for r in c.execute(
-            "SELECT DISTINCT state FROM entities WHERE state IS NOT NULL ORDER BY state")]
+            f"SELECT DISTINCT state FROM entities e WHERE e.state IS NOT NULL AND {' AND '.join(where)} ORDER BY state", args)]
         return self._json({"rows": rows, "total": total, "page": page, "states": states})
 
-    def api_highrisk(self):
+    def api_highrisk(self, q):
         c = get_db().cursor()
-        rows = rows_to_dicts(c.execute("""
+        where_clause = ""
+        if not self._is_approved(q):
+            g_ids = get_gadkari_network_ids()
+            q_str = ",".join(str(i) for i in g_ids) if g_ids else "0"
+            where_clause = f" WHERE e.id IN ({q_str})"
+
+        rows = rows_to_dicts(c.execute(f"""
             SELECT e.id, e.name, e.party, e.constituency, e.state,
                    MAX(f.risk_score) AS risk, SUM(f.value_involved) AS flagged_value,
                    COUNT(f.id) AS flag_count,
                    (SELECT title FROM flags WHERE entity_id=e.id ORDER BY risk_score DESC LIMIT 1) AS top_flag
             FROM entities e JOIN flags f ON f.entity_id=e.id
+            {where_clause}
             GROUP BY e.id ORDER BY CASE WHEN e.name LIKE '%Nitin Gadkari%' THEN 0 ELSE 1 END, risk DESC LIMIT 8"""))
         return self._json(rows)
 
-    def api_overview(self):
+    def api_overview(self, q):
         c = get_db().cursor()
-        rows = rows_to_dicts(c.execute("""
+        where_clause = "e.type='Politician' AND e.state IS NOT NULL"
+        pattern_where = ""
+        if not self._is_approved(q):
+            g_ids = get_gadkari_network_ids()
+            q_str = ",".join(str(i) for i in g_ids) if g_ids else "0"
+            where_clause += f" AND e.id IN ({q_str})"
+            pattern_where = f" WHERE entity_id IN ({q_str})"
+
+        rows = rows_to_dicts(c.execute(f"""
             SELECT e.state,
                    COUNT(DISTINCT e.id) AS politicians,
                    COUNT(DISTINCT f.id) AS flags,
                    COALESCE(SUM(f.value_involved),0) AS flagged_value,
                    COALESCE(MAX(f.risk_score),0) AS max_risk
             FROM entities e LEFT JOIN flags f ON f.entity_id=e.id
-            WHERE e.type='Politician' AND e.state IS NOT NULL
+            WHERE {where_clause}
             GROUP BY e.state ORDER BY flagged_value DESC"""))
-        patterns = rows_to_dicts(c.execute("""
+        patterns = rows_to_dicts(c.execute(f"""
             SELECT pattern, COUNT(*) AS n, COALESCE(SUM(value_involved),0) AS value
-            FROM flags GROUP BY pattern ORDER BY value DESC"""))
+            FROM flags {pattern_where} GROUP BY pattern ORDER BY value DESC"""))
         return self._json({"states": rows, "patterns": patterns})
 
     def api_export(self, eid, fmt):

@@ -26,8 +26,81 @@ header.site {
   background: var(--panel); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 100;
 }
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
 .logo { font-weight: 800; font-size: 19px; letter-spacing: .2px; color: var(--text); flex-shrink: 0; }
 .logo span { color: var(--accent); }
+
+.approved-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel2);
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow);
+}
+.approved-toggle:hover {
+  border-color: var(--accent);
+}
+.approved-toggle input {
+  display: none;
+}
+.approved-toggle .approved-text {
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+.approved-toggle .toggle-switch {
+  width: 34px;
+  height: 18px;
+  background: #94a3b8;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  display: inline-block;
+}
+.approved-toggle input:checked + .toggle-switch {
+  background: #10b981;
+}
+.approved-toggle .toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.approved-toggle input:checked + .toggle-switch::after {
+  transform: translateX(16px);
+}
+.approved-toggle .toggle-status {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.approved-toggle input:checked ~ .toggle-status {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+.approved-toggle input:not(:checked) ~ .toggle-status {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--muted);
+}
 nav.main { display: flex; gap: 14px; flex-wrap: wrap; }
 nav.main a { color: var(--muted); font-weight: 600; padding: 6px 10px; border-radius: 6px; transition: background 0.15s, color 0.15s; }
 nav.main a.active, nav.main a:hover { color: var(--text); background: var(--panel2); text-decoration: none; }
